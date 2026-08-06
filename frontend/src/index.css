@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-surface text-ink font-body;
+}
+
+.h-title {
+  @apply font-display font-semibold text-ink;
+}
+
+.stat-num {
+  @apply font-mono;
+}
+
+.card {
+  @apply bg-card border border-border rounded-md shadow-sm;
+}
+
+.btn-primary {
+  @apply bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-4 py-2 rounded-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-secondary {
+  @apply bg-white border border-border hover:border-teal-500 text-ink text-sm font-medium px-4 py-2 rounded-sm transition-colors;
+}
+
+.btn-danger {
+  @apply bg-danger-500 hover:bg-danger-400 text-white text-sm font-medium px-4 py-2 rounded-sm transition-colors;
+}
+
+.input {
+  @apply w-full border border-border rounded-sm px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-teal-400;
+}
+
+.label {
+  @apply block text-xs font-medium text-ink/60 mb-1 tracking-wide uppercase;
+}
+
+.table-base {
+  @apply w-full text-sm border-collapse;
+}
+.table-base th {
+  @apply text-left text-xs uppercase tracking-wide text-ink/50 font-medium py-2 px-3 border-b border-border;
+}
+.table-base td {
+  @apply py-2.5 px-3 border-b border-border/70;
+}
+.table-base tr:hover td {
+  @apply bg-teal-50/50;
+}
+
+.badge {
+  @apply inline-block text-xs font-medium px-2 py-0.5 rounded-full;
+}
+.badge-green { @apply bg-teal-100 text-teal-700; }
+.badge-amber { @apply bg-amber-400/20 text-amber-500; }
+.badge-red { @apply bg-danger-400/20 text-danger-500; }
+.badge-gray { @apply bg-ink/10 text-ink/60; }
