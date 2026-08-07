@@ -14,6 +14,7 @@ from routes.ip_billing import ip_billing_bp
 from routes.admissions import admissions_bp
 from routes.billing_management import billing_mgmt_bp
 from routes.reports import reports_bp
+from routes.users import users_bp
 
 DEBUG = os.getenv("FLASK_ENV", "development") == "development"
 
@@ -34,6 +35,7 @@ def create_app():
     app.register_blueprint(admissions_bp, url_prefix="/api/admissions")
     app.register_blueprint(billing_mgmt_bp, url_prefix="/api/billing-management")
     app.register_blueprint(reports_bp, url_prefix="/api/reports")
+    app.register_blueprint(users_bp, url_prefix="/api/users")
 
     @app.route("/api/health")
     def health():

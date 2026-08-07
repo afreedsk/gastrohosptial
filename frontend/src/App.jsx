@@ -1,45 +1,75 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useAuth } from './context/AuthContext'
-import Login from './pages/Login'
-import ExecutiveLayout from './layouts/ExecutiveLayout'
-import Dashboard from './pages/executive/Dashboard'
+import { AuthProvider } from './context/AuthContext'
+import ProtectedRoute from './components/ProtectedRoute'
+import Layout from './components/Layout'
+
+import Login from './pages/auth/Login'
+
+import SuperAdminDashboard from './pages/superadmin/Dashboard'
+import UserManagement from './pages/superadmin/UserManagement'
+
+import AdminDashboard from './pages/admin/Dashboard'
+import AdminBillingManagement from './pages/admin/BillingManagement'
+
+import ExecutiveDashboard from './pages/executive/Dashboard'
+import ExecutiveBillingModifications from './pages/executive/BillingModifications'
+
+// ⚠️ Confirm these paths match your real files — adjust if they live elsewhere
 import PatientRegistration from './pages/executive/PatientRegistration'
 import Appointments from './pages/executive/Appointments'
+import Admission from './pages/executive/Admission'
 import OPBilling from './pages/executive/OPBilling'
 import IPBilling from './pages/executive/IPBilling'
-import Admission from './pages/executive/Admission'
-import BillingManagement from './pages/executive/BillingManagement'
-import Reports from './pages/executive/Reports'
 
-function Protected({ children }) {
-  const { user } = useAuth()
-  if (!user) return <Navigate to="/login" replace />
-  return children
+function withLayout(el) {
+  return <Layout>{el}</Layout>
 }
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route
-        path="/executive"
-        element={
-          <Protected>
-            <ExecutiveLayout />
-          </Protected>
-        }
-      >
-        <Route index element={<Navigate to="dashboard" replace />} />
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="patient-registration" element={<PatientRegistration />} />
-        <Route path="appointments" element={<Appointments />} />
-        <Route path="op-billing" element={<OPBilling />} />
-        <Route path="ip-billing" element={<IPBilling />} />
-        <Route path="admission" element={<Admission />} />
-        <Route path="billing-management" element={<BillingManagement />} />
-        <Route path="reports" element={<Reports />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/executive/dashboard" replace />} />
-    </Routes>
+    <AuthProvider>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+
+        <Route path="/superadmin/dashboard" element={
+          <ProtectedRoute roles={['super_admin']}>{withLayout(<SuperAdminDashboard />)}</ProtectedRoute>
+        } />
+        <Route path="/superadmin/users" element={
+          <ProtectedRoute roles={['super_admin']}>{withLayout(<UserManagement />)}</ProtectedRoute>
+        } />
+
+        <Route path="/admin/dashboard" element={
+          <ProtectedRoute roles={['admin', 'super_admin']}>{withLayout(<AdminDashboard />)}</ProtectedRoute>
+        } />
+        <Route path="/admin/billing" element={
+          <ProtectedRoute roles={['admin', 'super_admin']}>{withLayout(<AdminBillingManagement />)}</ProtectedRoute>
+        } />
+
+        <Route path="/executive/dashboard" element={
+          <ProtectedRoute roles={['executive', 'admin', 'super_admin']}>{withLayout(<ExecutiveDashboard />)}</ProtectedRoute>
+        } />
+        <Route path="/executive/billing-modifications" element={
+          <ProtectedRoute roles={['executive', 'admin', 'super_admin']}>{withLayout(<ExecutiveBillingModifications />)}</ProtectedRoute>
+        } />
+        <Route path="/executive/patient-registration" element={
+          <ProtectedRoute roles={['executive', 'admin', 'super_admin']}>{withLayout(<PatientRegistration />)}</ProtectedRoute>
+        } />
+        <Route path="/executive/appointments" element={
+          <ProtectedRoute roles={['executive', 'admin', 'super_admin']}>{withLayout(<Appointments />)}</ProtectedRoute>
+        } />
+        <Route path="/executive/admission" element={
+          <ProtectedRoute roles={['executive', 'admin', 'super_admin']}>{withLayout(<Admission />)}</ProtectedRoute>
+        } />
+        <Route path="/executive/op-billing" element={
+          <ProtectedRoute roles={['executive', 'admin', 'super_admin']}>{withLayout(<OPBilling />)}</ProtectedRoute>
+        } />
+        <Route path="/executive/ip-billing" element={
+          <ProtectedRoute roles={['executive', 'admin', 'super_admin']}>{withLayout(<IPBilling />)}</ProtectedRoute>
+        } />
+
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </AuthProvider>
   )
 }

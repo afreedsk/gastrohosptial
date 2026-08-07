@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts'
 import {
   UserPlus, CalendarClock, Stethoscope, BedDouble,
-  Receipt, IndianRupee, XCircle, FlaskConical
+  Receipt, IndianRupee, XCircle, FlaskConical, CalendarCheck, FileText, ShieldAlert
 } from 'lucide-react'
 import api from '../../api/axios'
 import StatCard from '../../components/StatCard'
@@ -13,7 +14,16 @@ import { PageHeader, Section } from '../../components/PageHeader'
 
 const COLORS = ['#0E7C7B', '#E8A33D']
 
-export default function Dashboard() {
+const QUICK_LINKS = [
+  { to: '/executive/patient-registration', label: 'Patient Registration', icon: UserPlus },
+  { to: '/executive/appointments', label: 'Appointments', icon: CalendarCheck },
+  { to: '/executive/admission', label: 'Admission', icon: BedDouble },
+  { to: '/executive/op-billing', label: 'OP Billing', icon: Receipt },
+  { to: '/executive/ip-billing', label: 'IP Billing', icon: FileText },
+  { to: '/executive/billing-modifications', label: 'Billing Management', icon: ShieldAlert },
+]
+
+export default function ExecutiveDashboard() {
   const [summary, setSummary] = useState(null)
   const [patientsPerDay, setPatientsPerDay] = useState([])
   const [revenue, setRevenue] = useState([])
@@ -21,11 +31,11 @@ export default function Dashboard() {
   const [deptCollection, setDeptCollection] = useState([])
 
   useEffect(() => {
-    api.get('/dashboard/summary').then((r) => setSummary(r.data))
-    api.get('/dashboard/charts/patients-per-day').then((r) => setPatientsPerDay(r.data))
-    api.get('/dashboard/charts/revenue').then((r) => setRevenue(r.data))
-    api.get('/dashboard/charts/op-vs-ip').then((r) => setOpVsIp(r.data))
-    api.get('/dashboard/charts/department-collection').then((r) => setDeptCollection(r.data))
+    api.get('/dashboard/summary').then((r) => setSummary(r.data)).catch(() => {})
+    api.get('/dashboard/charts/patients-per-day').then((r) => setPatientsPerDay(r.data)).catch(() => {})
+    api.get('/dashboard/charts/revenue').then((r) => setRevenue(r.data)).catch(() => {})
+    api.get('/dashboard/charts/op-vs-ip').then((r) => setOpVsIp(r.data)).catch(() => {})
+    api.get('/dashboard/charts/department-collection').then((r) => setDeptCollection(r.data)).catch(() => {})
   }, [])
 
   const cards = summary
@@ -43,7 +53,7 @@ export default function Dashboard() {
 
   return (
     <div>
-      <PageHeader title="Dashboard" subtitle="Live overview of today's hospital activity" />
+      <PageHeader title="Executive Dashboard" subtitle="Live overview of today's hospital activity" />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {cards.length
@@ -79,7 +89,7 @@ export default function Dashboard() {
         </Section>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         <Section title="OP vs IP (Last 7 Days)">
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
@@ -106,6 +116,17 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </Section>
       </div>
+
+      <Section title="Quick Access">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {QUICK_LINKS.map(({ to, label, icon: Icon }) => (
+            <Link key={to} to={to} className="flex items-center gap-3 p-3 rounded-sm border border-border hover:border-teal-600 hover:bg-teal-50/50 text-sm text-ink/70">
+              <Icon size={16} className="text-teal-600" />
+              {label}
+            </Link>
+          ))}
+        </div>
+      </Section>
     </div>
   )
 }
