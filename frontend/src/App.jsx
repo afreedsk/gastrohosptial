@@ -13,6 +13,9 @@ import AdminBillingManagement from './pages/admin/BillingManagement'
 
 import ExecutiveDashboard from './pages/executive/Dashboard'
 import ExecutiveBillingModifications from './pages/executive/BillingModifications'
+import OutPatientList from './pages/executive/OutPatientList'
+import InPatientList from './pages/executive/InPatientList'
+import PatientRecords from './pages/executive/PatientRecords'
 
 // ⚠️ Confirm these paths match your real files — adjust if they live elsewhere
 import PatientRegistration from './pages/executive/PatientRegistration'
@@ -66,6 +69,15 @@ export default function App() {
         <Route path="/executive/ip-billing" element={
           <ProtectedRoute roles={['executive', 'admin', 'super_admin']}>{withLayout(<IPBilling />)}</ProtectedRoute>
         } />
+        <Route path="/executive/out-patients" element={
+  <ProtectedRoute roles={['executive', 'admin', 'super_admin']}>{withLayout(<OutPatientList />)}</ProtectedRoute>
+} />
+<Route path="/executive/in-patients" element={
+  <ProtectedRoute roles={['executive', 'admin', 'super_admin']}>{withLayout(<InPatientList />)}</ProtectedRoute>
+} />
+<Route path="/executive/patient-records" element={
+  <ProtectedRoute roles={['executive', 'admin', 'super_admin']}>{withLayout(<PatientRecords />)}</ProtectedRoute>
+} />
 
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/login" replace />} />

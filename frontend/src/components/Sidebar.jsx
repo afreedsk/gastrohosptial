@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, UserPlus, CalendarCheck, BedDouble,
-  Receipt, FileText, ShieldAlert, Users, LogOut,
+  Receipt, FileText, ShieldAlert, Users, LogOut, Search,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
@@ -18,6 +18,12 @@ const NAV_ITEMS = [
   },
   { label: 'Patient Registration', icon: UserPlus, roles: ['executive', 'admin', 'super_admin'],
     to: () => '/executive/patient-registration' },
+  { label: 'Out Patients', icon: Receipt, roles: ['executive', 'admin', 'super_admin'],
+    to: () => '/executive/out-patients' },
+  { label: 'In Patients', icon: BedDouble, roles: ['executive', 'admin', 'super_admin'],
+    to: () => '/executive/in-patients' },
+  { label: 'Patient Records', icon: Search, roles: ['executive', 'admin', 'super_admin'],
+    to: () => '/executive/patient-records' },
   { label: 'Appointments', icon: CalendarCheck, roles: ['executive', 'admin', 'super_admin'],
     to: () => '/executive/appointments' },
   { label: 'Admission', icon: BedDouble, roles: ['executive', 'admin', 'super_admin'],
