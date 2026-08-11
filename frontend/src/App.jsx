@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
+import ComingSoon from './pages/ComingSoon'
 
 import Login from './pages/auth/Login'
 
@@ -16,8 +17,6 @@ import ExecutiveBillingModifications from './pages/executive/BillingModification
 import OutPatientList from './pages/executive/OutPatientList'
 import InPatientList from './pages/executive/InPatientList'
 import PatientRecords from './pages/executive/PatientRecords'
-
-// ⚠️ Confirm these paths match your real files — adjust if they live elsewhere
 import PatientRegistration from './pages/executive/PatientRegistration'
 import Appointments from './pages/executive/Appointments'
 import Admission from './pages/executive/Admission'
@@ -27,6 +26,27 @@ import IPBilling from './pages/executive/IPBilling'
 function withLayout(el) {
   return <Layout>{el}</Layout>
 }
+
+const EXEC_ROLES = ['executive', 'admin', 'super_admin']
+
+// label -> path for every not-yet-built module, rendered via ComingSoon
+const PLACEHOLDERS = [
+  ['Direct Services', '/executive/direct-services'],
+  ['Room Occupation', '/executive/room-occupation'],
+  ['Room Transfer Approval', '/executive/room-transfer-approval'],
+  ['Patient Status', '/executive/patient-status'],
+  ['Inpatient Dashboard', '/executive/inpatient-dashboard'],
+  ['Outpatient Dashboard', '/executive/outpatient-dashboard'],
+  ['Advance Payment', '/executive/advance-payment'],
+  ['Discharge Summary', '/executive/discharge-summary'],
+  ['New Discharge Summary', '/executive/new-discharge-summary'],
+  ['Billing Summary', '/executive/billing-summary'],
+  ['Referral Doctor', '/executive/referral-doctor'],
+  ['Inpatient Lab Reports', '/executive/reports/ip-lab'],
+  ['Outpatient Lab Reports', '/executive/reports/op-lab'],
+  ['Inpatient Radiology Reports', '/executive/reports/ip-radiology'],
+  ['Outpatient Radiology Reports', '/executive/reports/op-radiology'],
+]
 
 export default function App() {
   return (
@@ -49,35 +69,41 @@ export default function App() {
         } />
 
         <Route path="/executive/dashboard" element={
-          <ProtectedRoute roles={['executive', 'admin', 'super_admin']}>{withLayout(<ExecutiveDashboard />)}</ProtectedRoute>
+          <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<ExecutiveDashboard />)}</ProtectedRoute>
         } />
         <Route path="/executive/billing-modifications" element={
-          <ProtectedRoute roles={['executive', 'admin', 'super_admin']}>{withLayout(<ExecutiveBillingModifications />)}</ProtectedRoute>
+          <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<ExecutiveBillingModifications />)}</ProtectedRoute>
         } />
         <Route path="/executive/patient-registration" element={
-          <ProtectedRoute roles={['executive', 'admin', 'super_admin']}>{withLayout(<PatientRegistration />)}</ProtectedRoute>
+          <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<PatientRegistration />)}</ProtectedRoute>
         } />
         <Route path="/executive/appointments" element={
-          <ProtectedRoute roles={['executive', 'admin', 'super_admin']}>{withLayout(<Appointments />)}</ProtectedRoute>
+          <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<Appointments />)}</ProtectedRoute>
         } />
         <Route path="/executive/admission" element={
-          <ProtectedRoute roles={['executive', 'admin', 'super_admin']}>{withLayout(<Admission />)}</ProtectedRoute>
+          <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<Admission />)}</ProtectedRoute>
         } />
         <Route path="/executive/op-billing" element={
-          <ProtectedRoute roles={['executive', 'admin', 'super_admin']}>{withLayout(<OPBilling />)}</ProtectedRoute>
+          <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<OPBilling />)}</ProtectedRoute>
         } />
         <Route path="/executive/ip-billing" element={
-          <ProtectedRoute roles={['executive', 'admin', 'super_admin']}>{withLayout(<IPBilling />)}</ProtectedRoute>
+          <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<IPBilling />)}</ProtectedRoute>
         } />
         <Route path="/executive/out-patients" element={
-  <ProtectedRoute roles={['executive', 'admin', 'super_admin']}>{withLayout(<OutPatientList />)}</ProtectedRoute>
-} />
-<Route path="/executive/in-patients" element={
-  <ProtectedRoute roles={['executive', 'admin', 'super_admin']}>{withLayout(<InPatientList />)}</ProtectedRoute>
-} />
-<Route path="/executive/patient-records" element={
-  <ProtectedRoute roles={['executive', 'admin', 'super_admin']}>{withLayout(<PatientRecords />)}</ProtectedRoute>
-} />
+          <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<OutPatientList />)}</ProtectedRoute>
+        } />
+        <Route path="/executive/in-patients" element={
+          <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<InPatientList />)}</ProtectedRoute>
+        } />
+        <Route path="/executive/patient-records" element={
+          <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<PatientRecords />)}</ProtectedRoute>
+        } />
+
+        {PLACEHOLDERS.map(([label, path]) => (
+          <Route key={path} path={path} element={
+            <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<ComingSoon title={label} />)}</ProtectedRoute>
+          } />
+        ))}
 
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/login" replace />} />

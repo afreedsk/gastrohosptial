@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { BedDouble } from 'lucide-react'
 import api from '../../api/axios'
 import { Section } from '../PageHeader'
+import PatientSearchPicker from './PatientSearchPicker'
 
 const REFERRAL_TYPES = ['Walkin', 'Online', 'Doctor', 'Hospital User', 'Other', 'Camp', 'Ads', 'Friend/Family', 'Marketing']
 const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Cheque', 'NEFT', 'Credit']
@@ -30,6 +31,10 @@ export default function IPRegistrationForm({ onCreated }) {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
+  const applyExistingPatient = (patient) => {
+    setForm((f) => ({ ...f, ...patient }))
+  }
+
   const submit = async (e) => {
     e.preventDefault()
     setError('')
@@ -57,6 +62,8 @@ export default function IPRegistrationForm({ onCreated }) {
       )}
 
       <Section title="Inpatient Registration Form">
+        <PatientSearchPicker onSelect={applyExistingPatient} />
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
             <label className="label">Title</label>

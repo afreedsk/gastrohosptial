@@ -11,6 +11,7 @@ import {
 import api from '../../api/axios'
 import StatCard from '../../components/StatCard'
 import { PageHeader, Section } from '../../components/PageHeader'
+import CollectionSummary from '../../components/dashboard/CollectionSummary'
 
 const COLORS = ['#0E7C7B', '#E8A33D']
 
@@ -54,6 +55,10 @@ export default function ExecutiveDashboard() {
   return (
     <div>
       <PageHeader title="Executive Dashboard" subtitle="Live overview of today's hospital activity" />
+
+      <div className="mb-6">
+        <CollectionSummary />
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {cards.length

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { UserPlus } from 'lucide-react'
 import api from '../../api/axios'
 import { Section } from '../PageHeader'
+import PatientSearchPicker from './PatientSearchPicker'
 
 const REFERRAL_TYPES = ['Walkin', 'Online', 'Doctor', 'Hospital User', 'Other', 'Camp', 'Ads', 'Friend/Family', 'Marketing']
 const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Cheque', 'NEFT', 'Credit']
@@ -33,6 +34,10 @@ export default function OPRegistrationForm({ onCreated }) {
     if (doc) set('consultation_fee', doc.consultation_fee)
   }
 
+  const applyExistingPatient = (patient) => {
+    setForm((f) => ({ ...f, ...patient }))
+  }
+
   const submit = async (e) => {
     e.preventDefault()
     setError('')
@@ -60,6 +65,8 @@ export default function OPRegistrationForm({ onCreated }) {
       )}
 
       <Section title="Outpatient Registration Form">
+        <PatientSearchPicker onSelect={applyExistingPatient} />
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
             <label className="label">Title</label>
@@ -125,24 +132,30 @@ export default function OPRegistrationForm({ onCreated }) {
           </div>
         </div>
 
-        {form.referral_type === 'Doctor' && (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4 p-3 bg-teal-50/50 border border-teal-100 rounded-sm">
-            <div><label className="label">Referring Doctor Name</label><input className="input" value={form.referral_doctor_name} onChange={(e) => set('referral_doctor_name', e.target.value)} /></div>
-            <div><label className="label">Appointment Date</label><input type="date" className="input" value={form.appointment_date} onChange={(e) => set('appointment_date', e.target.value)} /></div>
-            <div><label className="label">Appointment Time</label><input type="time" className="input" value={form.appointment_time} onChange={(e) => set('appointment_time', e.target.value)} /></div>
+        {/* Appointment date/time, payment mode, registration fee and MLC are now
+            visible for every referral type. Only "Referring Doctor Name" stays
+            conditional on referral_type === 'Doctor'. */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+          {form.referral_type === 'Doctor' && (
             <div>
-              <label className="label">Payment Mode</label>
-              <select className="input" value={form.payment_mode} onChange={(e) => set('payment_mode', e.target.value)}>
-                {PAYMENT_MODES.map((p) => <option key={p}>{p}</option>)}
-              </select>
+              <label className="label">Referring Doctor Name</label>
+              <input className="input" value={form.referral_doctor_name} onChange={(e) => set('referral_doctor_name', e.target.value)} />
             </div>
-            <div><label className="label">Registration Fee</label><input type="number" className="input" value={form.registration_fee} onChange={(e) => set('registration_fee', e.target.value)} /></div>
-            <label className="flex items-center gap-2 text-sm mt-6">
-              <input type="checkbox" checked={form.mlc} onChange={(e) => set('mlc', e.target.checked)} />
-              MLC Patient (tick, if medico legal case)
-            </label>
+          )}
+          <div><label className="label">Appointment Date</label><input type="date" className="input" value={form.appointment_date} onChange={(e) => set('appointment_date', e.target.value)} /></div>
+          <div><label className="label">Appointment Time</label><input type="time" className="input" value={form.appointment_time} onChange={(e) => set('appointment_time', e.target.value)} /></div>
+          <div>
+            <label className="label">Payment Mode</label>
+            <select className="input" value={form.payment_mode} onChange={(e) => set('payment_mode', e.target.value)}>
+              {PAYMENT_MODES.map((p) => <option key={p}>{p}</option>)}
+            </select>
           </div>
-        )}
+          <div><label className="label">Registration Fee</label><input type="number" className="input" value={form.registration_fee} onChange={(e) => set('registration_fee', e.target.value)} /></div>
+          <label className="flex items-center gap-2 text-sm mt-6">
+            <input type="checkbox" checked={form.mlc} onChange={(e) => set('mlc', e.target.checked)} />
+            MLC Patient (tick, if medico legal case)
+          </label>
+        </div>
       </Section>
 
       <div className="flex gap-3">
