@@ -10,6 +10,19 @@ const FLOORS = ['1st Floor', '2nd Floor', '3rd Floor']
 const ROOM_TYPES = ['General', 'Semi-Private', 'Private', 'ICU', 'Deluxe']
 const BOOKING_TYPES = ['Walk-in', 'Online', 'Phone']
 
+function calcAge(dobStr) {
+  if (!dobStr) return ''
+  const dob = new Date(dobStr)
+  if (isNaN(dob)) return ''
+  const today = new Date()
+  let age = today.getFullYear() - dob.getFullYear()
+  const hasHadBirthdayThisYear =
+    today.getMonth() > dob.getMonth() ||
+    (today.getMonth() === dob.getMonth() && today.getDate() >= dob.getDate())
+  if (!hasHadBirthdayThisYear) age -= 1
+  return age >= 0 ? age : ''
+}
+
 const empty = {
   title: 'Mr', first_name: '', last_name: '', gender: 'Male', age: '', dob: '',
   marital_status: 'Single', blood_group: '', aadhar_number: '', mobile: '', alt_phone: '',
@@ -31,8 +44,16 @@ export default function IPRegistrationForm({ onCreated }) {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
+  const onDobChange = (value) => {
+    setForm((f) => ({ ...f, dob: value, age: calcAge(value) }))
+  }
+
   const applyExistingPatient = (patient) => {
-    setForm((f) => ({ ...f, ...patient }))
+    setForm((f) => ({
+      ...f,
+      ...patient,
+      age: patient.dob ? calcAge(patient.dob) : (patient.age ?? ''),
+    }))
   }
 
   const submit = async (e) => {
@@ -79,8 +100,18 @@ export default function IPRegistrationForm({ onCreated }) {
               <option>Male</option><option>Female</option><option>Other</option>
             </select>
           </div>
-          <div><label className="label">Age</label><input type="number" className="input" value={form.age} onChange={(e) => set('age', e.target.value)} /></div>
-          <div><label className="label">DOB</label><input type="date" className="input" value={form.dob} onChange={(e) => set('dob', e.target.value)} /></div>
+          <div><label className="label">DOB</label><input type="date" className="input" value={form.dob} onChange={(e) => onDobChange(e.target.value)} /></div>
+          <div>
+            <label className="label">Age</label>
+            <input
+              type="number"
+              min="0"
+              className="input"
+              value={form.age}
+              onChange={(e) => set('age', e.target.value)}
+              placeholder="Auto from DOB"
+            />
+          </div>
           <div>
             <label className="label">Marital Status</label>
             <select className="input" value={form.marital_status} onChange={(e) => set('marital_status', e.target.value)}>

@@ -7,8 +7,21 @@ import PatientSearchPicker from './PatientSearchPicker'
 const REFERRAL_TYPES = ['Walkin', 'Online', 'Doctor', 'Hospital User', 'Other', 'Camp', 'Ads', 'Friend/Family', 'Marketing']
 const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Cheque', 'NEFT', 'Credit']
 
+function calcAge(dobStr) {
+  if (!dobStr) return ''
+  const dob = new Date(dobStr)
+  if (isNaN(dob)) return ''
+  const today = new Date()
+  let age = today.getFullYear() - dob.getFullYear()
+  const hasHadBirthdayThisYear =
+    today.getMonth() > dob.getMonth() ||
+    (today.getMonth() === dob.getMonth() && today.getDate() >= dob.getDate())
+  if (!hasHadBirthdayThisYear) age -= 1
+  return age >= 0 ? age : ''
+}
+
 const empty = {
-  title: 'Mr', first_name: '', last_name: '', gender: 'Male', dob: '',
+  title: 'Mr', first_name: '', last_name: '', gender: 'Male', dob: '', age: '',
   email: '', mobile: '', alt_phone: '', aadhar_number: '',
   visit_type: 'General', guardian_relation: '', guardian_name: '', guardian_mobile: '',
   street_address: '', doctor_id: '', consultation_fee: 0,
@@ -28,6 +41,10 @@ export default function OPRegistrationForm({ onCreated }) {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
+  const onDobChange = (value) => {
+    setForm((f) => ({ ...f, dob: value, age: calcAge(value) }))
+  }
+
   const onDoctorChange = (id) => {
     const doc = doctors.find((d) => String(d.id) === String(id))
     set('doctor_id', id)
@@ -35,7 +52,7 @@ export default function OPRegistrationForm({ onCreated }) {
   }
 
   const applyExistingPatient = (patient) => {
-    setForm((f) => ({ ...f, ...patient }))
+    setForm((f) => ({ ...f, ...patient, age: patient.dob ? calcAge(patient.dob) : (patient.age ?? '') }))
   }
 
   const submit = async (e) => {
@@ -44,7 +61,10 @@ export default function OPRegistrationForm({ onCreated }) {
     if (!form.first_name || !form.mobile) return setError('First name and mobile are required')
     setSaving(true)
     try {
-      const { data } = await api.post('/op-registrations', form)
+      // age is derived from dob for display only — op_registrations has no
+      // age column, so it isn't sent to the backend (matches existing schema)
+      const { age, ...payload } = form
+      const { data } = await api.post('/op-registrations', payload)
       setSaved(data)
       setForm(empty)
       onCreated?.()
@@ -82,7 +102,18 @@ export default function OPRegistrationForm({ onCreated }) {
               <option>Male</option><option>Female</option><option>Other</option>
             </select>
           </div>
-          <div><label className="label">DOB</label><input type="date" className="input" value={form.dob} onChange={(e) => set('dob', e.target.value)} /></div>
+          <div><label className="label">DOB</label><input type="date" className="input" value={form.dob} onChange={(e) => onDobChange(e.target.value)} /></div>
+          <div>
+            <label className="label">Age</label>
+            <input
+              type="number"
+              min="0"
+              className="input"
+              value={form.age}
+              onChange={(e) => set('age', e.target.value)}
+              placeholder="Auto from DOB"
+            />
+          </div>
           <div><label className="label">Mobile *</label><input className="input" required value={form.mobile} onChange={(e) => set('mobile', e.target.value)} /></div>
           <div><label className="label">Alternate Phone</label><input className="input" value={form.alt_phone} onChange={(e) => set('alt_phone', e.target.value)} /></div>
           <div><label className="label">Email</label><input type="email" className="input" value={form.email} onChange={(e) => set('email', e.target.value)} /></div>
@@ -132,9 +163,6 @@ export default function OPRegistrationForm({ onCreated }) {
           </div>
         </div>
 
-        {/* Appointment date/time, payment mode, registration fee and MLC are now
-            visible for every referral type. Only "Referring Doctor Name" stays
-            conditional on referral_type === 'Doctor'. */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
           {form.referral_type === 'Doctor' && (
             <div>
