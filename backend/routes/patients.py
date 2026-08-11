@@ -52,6 +52,24 @@ def create_patient():
     return jsonify(patient), 201
 
 
+@patients_bp.route("", methods=["GET"])
+@jwt_required()
+def list_patients():
+    search = request.args.get("search", "")
+    page = int(request.args.get("page", 1))
+    limit = int(request.args.get("limit", 20))
+    offset = (page - 1) * limit
+
+    like = f"%{search}%"
+    rows = query("""
+        SELECT * FROM patients
+        WHERE name LIKE %s OR phone LIKE %s OR patient_uid LIKE %s OR reg_no LIKE %s
+           OR email LIKE %s
+        ORDER BY id DESC LIMIT %s OFFSET %s
+    """, (like, like, like, like, like, limit, offset), many=True)
+    return jsonify(rows)
+
+
 @patients_bp.route("/<int:patient_id>/status", methods=["PATCH"])
 @jwt_required()
 def update_patient_status(patient_id):

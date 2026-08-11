@@ -126,26 +126,11 @@ export default function IPBilling() {
   // ==========================================================
 
   useEffect(() => {
-
-    api
-      .get('/admissions', {
-        params: {
-          status: 'Admitted',
-        },
-      })
-      .then((r) => {
-        setAdmissions(r.data)
-      })
-      .catch((err) => {
-        console.error(
-          'Failed to load admissions:',
-          err
-        )
-      })
-
+    api.get('/ip-registrations', { params: { status: 'Admitted' } })
+      .then((r) => setAdmissions(r.data))
+      .catch((err) => console.error('Failed to load admitted patients:', err))
 
     loadBills()
-
   }, [])
 
 
@@ -209,21 +194,13 @@ export default function IPBilling() {
 
     try {
 
-      await api.post(
-        '/ip-billing',
-        {
-          admission_id: admissionId,
-
-          ...charges,
-
-          discount,
-
-          advance_adjusted:
-            advanceAdjusted,
-
-          paid_amount: paid,
-        }
-      )
+      await api.post('/ip-billing', {
+        ip_registration_id: admissionId,
+        ...charges,
+        discount,
+        advance_adjusted: advanceAdjusted,
+        paid_amount: paid,
+      })
 
 
       // Reset
@@ -301,30 +278,21 @@ export default function IPBilling() {
             <select
               className="input mb-3"
               value={admissionId}
-              onChange={(e) =>
-                setAdmissionId(e.target.value)
-              }
+              onChange={(e) => setAdmissionId(e.target.value)}
             >
-
-              <option value="">
-                Select admission
-              </option>
-
+              <option value="">Select admission</option>
               {admissions.map((a) => (
-
-                <option
-                  key={a.id}
-                  value={a.id}
-                >
-                  {a.admission_no} —{' '}
-                  {a.patient_name}{' '}
-                  ({a.room_no}/{a.bed_no})
+                <option key={a.id} value={a.id}>
+                  {a.ip_reg_no} — {a.name} ({a.room_no || '—'}/{a.bed_no || '—'})
                 </option>
-
               ))}
-
             </select>
 
+            {!admissions.length && (
+              <p className="text-xs text-amber-600 mb-3">
+                No admitted patients found. Admit a patient first via In Patient Registration.
+              </p>
+            )}
 
             {/* Charges */}
 
