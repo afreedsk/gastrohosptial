@@ -16,7 +16,8 @@ export default function InPatientList() {
 
   const submitTransfer = async () => {
     if (!roomNo) return
-    await api.post(`/ip-registrations/${transferFor}/transfer`, { room_no: roomNo, bed_no: bedNo })
+    // in InPatientList.jsx submitTransfer():
+    await api.post(`/ip-registrations/${transferFor}/transfer/request`, { room_no: roomNo, bed_no: bedNo })
     setTransferFor(null); setRoomNo(''); setBedNo('')
     load(search)
   }

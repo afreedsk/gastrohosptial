@@ -52,21 +52,23 @@ def create_patient():
     return jsonify(patient), 201
 
 
-@patients_bp.route("", methods=["GET"])
+@patients_bp.route("/<int:patient_id>/status", methods=["PATCH"])
 @jwt_required()
-def list_patients():
-    search = request.args.get("search", "")
-    page = int(request.args.get("page", 1))
-    limit = int(request.args.get("limit", 20))
-    offset = (page - 1) * limit
+def update_patient_status(patient_id):
+    d = request.get_json(silent=True) or {}
+    is_active = d.get("is_active")
+    if is_active is None:
+        return jsonify({"error": "is_active is required"}), 400
 
-    like = f"%{search}%"
-    rows = query("""
-        SELECT * FROM patients
-        WHERE name LIKE %s OR phone LIKE %s OR patient_uid LIKE %s OR reg_no LIKE %s
-        ORDER BY id DESC LIMIT %s OFFSET %s
-    """, (like, like, like, like, limit, offset), many=True)
-    return jsonify(rows)
+    row = query("SELECT id FROM patients WHERE id=%s", (patient_id,))
+    if not row:
+        return jsonify({"error": "Patient not found"}), 404
+
+    query("UPDATE patients SET is_active=%s WHERE id=%s", (1 if is_active else 0, patient_id),
+          fetch=False, commit=True)
+    log_audit(get_jwt_identity(), "STATUS_CHANGE", "Patient", patient_id,
+              f"{'Activated' if is_active else 'Deactivated'}")
+    return jsonify(query("SELECT * FROM patients WHERE id=%s", (patient_id,)))
 
 
 @patients_bp.route("/<int:patient_id>", methods=["GET"])

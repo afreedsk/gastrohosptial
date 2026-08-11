@@ -19,6 +19,8 @@ from routes.doctors import doctors_bp
 from routes.op_registrations import op_reg_bp
 from routes.ip_registrations import ip_reg_bp
 from routes.patient_records import patient_records_bp
+from routes.room_occupancy import room_occupancy_bp
+from routes.direct_services import direct_services_bp
 
 DEBUG = os.getenv("FLASK_ENV", "development") == "development"
 
@@ -43,6 +45,8 @@ def create_app():
     app.register_blueprint(op_reg_bp, url_prefix="/api/op-registrations")
     app.register_blueprint(ip_reg_bp, url_prefix="/api/ip-registrations")
     app.register_blueprint(patient_records_bp, url_prefix="/api/patient-records")
+    app.register_blueprint(room_occupancy_bp, url_prefix="/api/room-occupancy")
+    app.register_blueprint(direct_services_bp, url_prefix="/api/direct-services")
     app.register_blueprint(users_bp, url_prefix="/api/users")
 
     @app.route("/api/health")

@@ -2,7 +2,7 @@ from datetime import date
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from db import query
-from utils import next_code, log_audit
+from utils import next_code, log_audit, role_required
 
 ip_reg_bp = Blueprint("ip_registrations", __name__)
 
@@ -120,10 +120,10 @@ def list_ip_registrations():
     return jsonify(rows)
 
 
-@ip_reg_bp.route("/<int:reg_id>/transfer", methods=["POST"])
+@ip_reg_bp.route("/<int:reg_id>/transfer/request", methods=["POST"])
 @jwt_required()
-def transfer_room(reg_id):
-    d = request.get_json()
+def request_transfer(reg_id):
+    d = request.get_json(silent=True) or {}
     room_no = d.get("room_no")
     bed_no = d.get("bed_no")
     if not room_no:
@@ -134,9 +134,71 @@ def transfer_room(reg_id):
         return jsonify({"error": "Admission not found"}), 404
 
     query("""
-        UPDATE ip_registrations SET room_no=%s, bed_no=%s, room_transfer_status='Transferred'
+        UPDATE ip_registrations
+        SET requested_room_no=%s, requested_bed_no=%s,
+            room_transfer_status='Requested', transfer_requested_at=NOW()
         WHERE id=%s
     """, (room_no, blank_to_none(bed_no), reg_id), fetch=False, commit=True)
 
-    log_audit(get_jwt_identity(), "ROOM_TRANSFER", "IP Registration", reg_id, f"Moved to {room_no}/{bed_no}")
+    log_audit(get_jwt_identity(), "TRANSFER_REQUEST", "IP Registration", reg_id,
+              f"Requested move to {room_no}/{bed_no}")
     return jsonify(query("SELECT * FROM ip_registrations WHERE id=%s", (reg_id,)))
+
+
+@ip_reg_bp.route("/<int:reg_id>/transfer/approve", methods=["POST"])
+@jwt_required()
+@role_required("admin", "super_admin")
+def approve_transfer(reg_id):
+    row = query("SELECT * FROM ip_registrations WHERE id=%s", (reg_id,))
+    if not row:
+        return jsonify({"error": "Admission not found"}), 404
+    if row["room_transfer_status"] != "Requested":
+        return jsonify({"error": "No pending transfer request for this admission"}), 400
+
+    query("""
+        UPDATE ip_registrations
+        SET room_no=requested_room_no, bed_no=requested_bed_no,
+            requested_room_no=NULL, requested_bed_no=NULL,
+            room_transfer_status='Transferred'
+        WHERE id=%s
+    """, (reg_id,), fetch=False, commit=True)
+
+    log_audit(get_jwt_identity(), "TRANSFER_APPROVE", "IP Registration", reg_id, "Transfer approved")
+    return jsonify(query("SELECT * FROM ip_registrations WHERE id=%s", (reg_id,)))
+
+
+@ip_reg_bp.route("/<int:reg_id>/transfer/reject", methods=["POST"])
+@jwt_required()
+@role_required("admin", "super_admin")
+def reject_transfer(reg_id):
+    row = query("SELECT id, room_transfer_status FROM ip_registrations WHERE id=%s", (reg_id,))
+    if not row:
+        return jsonify({"error": "Admission not found"}), 404
+    if row["room_transfer_status"] != "Requested":
+        return jsonify({"error": "No pending transfer request for this admission"}), 400
+
+    query("""
+        UPDATE ip_registrations
+        SET requested_room_no=NULL, requested_bed_no=NULL, room_transfer_status='None'
+        WHERE id=%s
+    """, (reg_id,), fetch=False, commit=True)
+
+    log_audit(get_jwt_identity(), "TRANSFER_REJECT", "IP Registration", reg_id, "Transfer rejected")
+    return jsonify(query("SELECT * FROM ip_registrations WHERE id=%s", (reg_id,)))
+
+
+@ip_reg_bp.route("/transfer-requests", methods=["GET"])
+@jwt_required()
+def list_transfer_requests():
+    rows = query("""
+        SELECT r.id, p.patient_uid AS mr_number, p.reg_no AS patient_reg_no,
+               CONCAT(r.first_name,' ',IFNULL(r.last_name,'')) AS name,
+               r.room_type AS from_room_type, r.room_no AS from_room_no, r.bed_no AS from_bed_no,
+               r.requested_room_no AS to_room_no, r.requested_bed_no AS to_bed_no,
+               r.transfer_requested_at
+        FROM ip_registrations r
+        JOIN patients p ON p.id = r.patient_id
+        WHERE r.room_transfer_status = 'Requested'
+        ORDER BY r.transfer_requested_at DESC
+    """, many=True)
+    return jsonify(rows)

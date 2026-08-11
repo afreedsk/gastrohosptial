@@ -22,6 +22,10 @@ import Appointments from './pages/executive/Appointments'
 import Admission from './pages/executive/Admission'
 import OPBilling from './pages/executive/OPBilling'
 import IPBilling from './pages/executive/IPBilling'
+import PatientStatus from './pages/executive/PatientStatus'
+import RoomTransferApproval from './pages/executive/RoomTransferApproval'
+import RoomOccupation from './pages/executive/RoomOccupation'
+import DirectServices from './pages/executive/DirectServices'
 
 function withLayout(el) {
   return <Layout>{el}</Layout>
@@ -31,10 +35,6 @@ const EXEC_ROLES = ['executive', 'admin', 'super_admin']
 
 // label -> path for every not-yet-built module, rendered via ComingSoon
 const PLACEHOLDERS = [
-  ['Direct Services', '/executive/direct-services'],
-  ['Room Occupation', '/executive/room-occupation'],
-  ['Room Transfer Approval', '/executive/room-transfer-approval'],
-  ['Patient Status', '/executive/patient-status'],
   ['Inpatient Dashboard', '/executive/inpatient-dashboard'],
   ['Outpatient Dashboard', '/executive/outpatient-dashboard'],
   ['Advance Payment', '/executive/advance-payment'],
@@ -98,6 +98,18 @@ export default function App() {
         <Route path="/executive/patient-records" element={
           <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<PatientRecords />)}</ProtectedRoute>
         } />
+        <Route path="/executive/direct-services" element={
+  <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<DirectServices />)}</ProtectedRoute>
+} />
+<Route path="/executive/room-occupation" element={
+  <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<RoomOccupation />)}</ProtectedRoute>
+} />
+<Route path="/executive/room-transfer-approval" element={
+  <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<RoomTransferApproval />)}</ProtectedRoute>
+} />
+<Route path="/executive/patient-status" element={
+  <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<PatientStatus />)}</ProtectedRoute>
+} />
 
         {PLACEHOLDERS.map(([label, path]) => (
           <Route key={path} path={path} element={
