@@ -18,7 +18,7 @@ from db import query
 USERS = [
     ("Super Admin",     "superadmin@hms.com", "SuperAdmin@123", "super_admin"),
     ("Admin Manager",   "admin@hms.com",       "Admin@123",      "admin"),
-    ("Reception Desk",  "executive@hms.com",   "Executive@123",  "executive"),
+    ("Reception Desk",  "afreedsk247@gmail.com",   "1234",  "executive"),
     ("Dr. Rao",         "doctor@hms.com",      "Doctor@123",     "doctor"),
     ("Lab Technician",  "labtech@hms.com",     "LabTech@123",    "lab_technician"),
 ]

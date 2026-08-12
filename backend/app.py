@@ -16,6 +16,8 @@ from routes.billing_management import billing_mgmt_bp
 from routes.reports import reports_bp
 from routes.users import users_bp
 from routes.doctors import doctors_bp
+from routes.departments import departments_bp
+from routes.referral_doctors import referral_doctors_bp
 from routes.op_registrations import op_reg_bp
 from routes.ip_registrations import ip_reg_bp
 from routes.patient_records import patient_records_bp
@@ -42,6 +44,8 @@ def create_app():
     app.register_blueprint(billing_mgmt_bp, url_prefix="/api/billing-management")
     app.register_blueprint(reports_bp, url_prefix="/api/reports")
     app.register_blueprint(doctors_bp, url_prefix="/api/doctors")
+    app.register_blueprint(departments_bp, url_prefix="/api/departments")
+    app.register_blueprint(referral_doctors_bp, url_prefix="/api/referral-doctors")
     app.register_blueprint(op_reg_bp, url_prefix="/api/op-registrations")
     app.register_blueprint(ip_reg_bp, url_prefix="/api/ip-registrations")
     app.register_blueprint(patient_records_bp, url_prefix="/api/patient-records")

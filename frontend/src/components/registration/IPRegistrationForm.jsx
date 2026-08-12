@@ -3,6 +3,7 @@ import { BedDouble } from 'lucide-react'
 import api from '../../api/axios'
 import { Section } from '../PageHeader'
 import PatientSearchPicker from './PatientSearchPicker'
+import DoctorSelect from './DoctorSelect'
 
 const REFERRAL_TYPES = ['Walkin', 'Online', 'Doctor', 'Hospital User', 'Other', 'Camp', 'Ads', 'Friend/Family', 'Marketing']
 const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Cheque', 'NEFT', 'Credit']
@@ -47,6 +48,10 @@ export default function IPRegistrationForm({ onCreated }) {
   const onDobChange = (value) => {
     setForm((f) => ({ ...f, dob: value, age: calcAge(value) }))
   }
+
+  const onDoctorChange = (id) => set('doctor_id', id)
+
+  const onDoctorAdded = (doc) => setDoctors((prev) => [...prev, doc])
 
   const applyExistingPatient = (patient) => {
     setForm((f) => ({
@@ -157,10 +162,12 @@ export default function IPRegistrationForm({ onCreated }) {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div>
             <label className="label">Consultant Doctor</label>
-            <select className="input" value={form.doctor_id} onChange={(e) => set('doctor_id', e.target.value)}>
-              <option value="">-- Select Doctor --</option>
-              {doctors.map((d) => <option key={d.id} value={d.id}>{d.name} ({d.department})</option>)}
-            </select>
+            <DoctorSelect
+              doctors={doctors}
+              value={form.doctor_id}
+              onChange={onDoctorChange}
+              onDoctorAdded={onDoctorAdded}
+            />
           </div>
           <div className="md:col-span-2"><label className="label">Symptoms</label><input className="input" value={form.symptoms} onChange={(e) => set('symptoms', e.target.value)} /></div>
           <div>

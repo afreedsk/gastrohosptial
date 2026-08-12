@@ -3,6 +3,8 @@ import { UserPlus } from 'lucide-react'
 import api from '../../api/axios'
 import { Section } from '../PageHeader'
 import PatientSearchPicker from './PatientSearchPicker'
+import DoctorSelect from './DoctorSelect'
+import ReferringDoctorSelect from './ReferringDoctorSelect'
 
 const REFERRAL_TYPES = ['Walkin', 'Online', 'Doctor', 'Hospital User', 'Other', 'Camp', 'Ads', 'Friend/Family', 'Marketing']
 const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Cheque', 'NEFT', 'Credit']
@@ -45,10 +47,18 @@ export default function OPRegistrationForm({ onCreated }) {
     setForm((f) => ({ ...f, dob: value, age: calcAge(value) }))
   }
 
+  // Handles both "picked an existing doctor" and "just created + auto-selected
+  // a new doctor" — in both cases doctors already contains the matching row
+  // by the time this runs (existing list, or appended via onDoctorAdded below).
   const onDoctorChange = (id) => {
     const doc = doctors.find((d) => String(d.id) === String(id))
     set('doctor_id', id)
     if (doc) set('consultation_fee', doc.consultation_fee)
+  }
+
+  const onDoctorAdded = (doc) => {
+    setDoctors((prev) => [...prev, doc])
+    set('consultation_fee', doc.consultation_fee ?? 0)
   }
 
   const applyExistingPatient = (patient) => {
@@ -149,10 +159,12 @@ export default function OPRegistrationForm({ onCreated }) {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div>
             <label className="label">Consultant Doctor</label>
-            <select className="input" value={form.doctor_id} onChange={(e) => onDoctorChange(e.target.value)}>
-              <option value="">-- Select Doctor --</option>
-              {doctors.map((d) => <option key={d.id} value={d.id}>{d.name} ({d.department})</option>)}
-            </select>
+            <DoctorSelect
+              doctors={doctors}
+              value={form.doctor_id}
+              onChange={onDoctorChange}
+              onDoctorAdded={onDoctorAdded}
+            />
           </div>
           <div><label className="label">Consultation Fee</label><input type="number" className="input" value={form.consultation_fee} onChange={(e) => set('consultation_fee', e.target.value)} /></div>
           <div>
@@ -167,7 +179,10 @@ export default function OPRegistrationForm({ onCreated }) {
           {form.referral_type === 'Doctor' && (
             <div>
               <label className="label">Referring Doctor Name</label>
-              <input className="input" value={form.referral_doctor_name} onChange={(e) => set('referral_doctor_name', e.target.value)} />
+              <ReferringDoctorSelect
+                value={form.referral_doctor_name}
+                onChange={(name) => set('referral_doctor_name', name)}
+              />
             </div>
           )}
           <div><label className="label">Appointment Date</label><input type="date" className="input" value={form.appointment_date} onChange={(e) => set('appointment_date', e.target.value)} /></div>
