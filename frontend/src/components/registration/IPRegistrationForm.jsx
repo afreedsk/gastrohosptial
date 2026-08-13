@@ -27,7 +27,8 @@ function calcAge(dobStr) {
 const empty = {
   title: 'Mr', first_name: '', last_name: '', gender: 'Male', age: '', dob: '',
   marital_status: 'Single', blood_group: '', aadhar_number: '', mobile: '', alt_phone: '',
-  occupation: '', email: '', state: '', city: '', locality: '', street_address: '', pincode: '',
+  occupation: '', email: '', state: '', city: '', locality: '', street_address: '',
+  village: '', mandal: '', district: '', pincode: '',
   guardian_name: '', guardian_relation: '', guardian_mobile: '', mother_name: '',
   doctor_id: '', symptoms: '', floor: '1st Floor', room_type: 'General', room_no: '', bed_no: '',
   referral_type: 'Walkin', payment_mode: 'Cash', advance_amount: 0, booking_type: 'Walk-in',
@@ -45,8 +46,25 @@ export default function IPRegistrationForm({ onCreated }) {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
+  // DOB -> Age (precise, accounts for whether this year's birthday has passed)
   const onDobChange = (value) => {
     setForm((f) => ({ ...f, dob: value, age: calcAge(value) }))
+  }
+
+  // Age -> DOB: defaults DOB to 1 Jan of the matching birth year when the
+  // clerk types an age before knowing the exact date. DOB stays editable
+  // afterwards — editing it goes through onDobChange, which recalculates
+  // the precise age.
+  const onAgeChange = (value) => {
+    setForm((f) => {
+      const next = { ...f, age: value }
+      const ageNum = parseInt(value, 10)
+      if (value !== '' && !isNaN(ageNum) && ageNum >= 0) {
+        const birthYear = new Date().getFullYear() - ageNum
+        next.dob = `${birthYear}-01-01`
+      }
+      return next
+    })
   }
 
   const onDoctorChange = (id) => set('doctor_id', id)
@@ -65,6 +83,7 @@ export default function IPRegistrationForm({ onCreated }) {
     e.preventDefault()
     setError('')
     if (!form.first_name || !form.mobile) return setError('First name and mobile are required')
+    if (!form.village.trim() || !form.district.trim()) return setError('Village and District are required')
     setSaving(true)
     try {
       const { data } = await api.post('/ip-registrations', form)
@@ -105,7 +124,10 @@ export default function IPRegistrationForm({ onCreated }) {
               <option>Male</option><option>Female</option><option>Other</option>
             </select>
           </div>
-          <div><label className="label">DOB</label><input type="date" className="input" value={form.dob} onChange={(e) => onDobChange(e.target.value)} /></div>
+          <div>
+            <label className="label">DOB</label>
+            <input type="date" className="input" value={form.dob} onChange={(e) => onDobChange(e.target.value)} />
+          </div>
           <div>
             <label className="label">Age</label>
             <input
@@ -113,8 +135,8 @@ export default function IPRegistrationForm({ onCreated }) {
               min="0"
               className="input"
               value={form.age}
-              onChange={(e) => set('age', e.target.value)}
-              placeholder="Auto from DOB"
+              onChange={(e) => onAgeChange(e.target.value)}
+              placeholder="Enter age or pick DOB"
             />
           </div>
           <div>
@@ -141,11 +163,20 @@ export default function IPRegistrationForm({ onCreated }) {
 
       <Section title="Address">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <input className="input" placeholder="State" value={form.state} onChange={(e) => set('state', e.target.value)} />
-          <input className="input" placeholder="City" value={form.city} onChange={(e) => set('city', e.target.value)} />
-          <input className="input" placeholder="Locality" value={form.locality} onChange={(e) => set('locality', e.target.value)} />
-          <input className="input" placeholder="Street Address" value={form.street_address} onChange={(e) => set('street_address', e.target.value)} />
-          <input className="input" placeholder="Pincode" value={form.pincode} onChange={(e) => set('pincode', e.target.value)} />
+          <div>
+            <label className="label">Village *</label>
+            <input className="input" required value={form.village} onChange={(e) => set('village', e.target.value)} />
+          </div>
+          <div><label className="label">Mandal</label><input className="input" value={form.mandal} onChange={(e) => set('mandal', e.target.value)} /></div>
+          <div>
+            <label className="label">District *</label>
+            <input className="input" required value={form.district} onChange={(e) => set('district', e.target.value)} />
+          </div>
+          <div><label className="label">State</label><input className="input" value={form.state} onChange={(e) => set('state', e.target.value)} /></div>
+          <div><label className="label">Pincode</label><input className="input" value={form.pincode} onChange={(e) => set('pincode', e.target.value)} /></div>
+          <div><label className="label">City</label><input className="input" value={form.city} onChange={(e) => set('city', e.target.value)} /></div>
+          <div><label className="label">Locality</label><input className="input" value={form.locality} onChange={(e) => set('locality', e.target.value)} /></div>
+          <div className="md:col-span-2"><label className="label">Street Address</label><input className="input" value={form.street_address} onChange={(e) => set('street_address', e.target.value)} /></div>
         </div>
       </Section>
 
@@ -160,15 +191,13 @@ export default function IPRegistrationForm({ onCreated }) {
 
       <Section title="Clinical & Room Details">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <div>
-            <label className="label">Consultant Doctor</label>
-            <DoctorSelect
-              doctors={doctors}
-              value={form.doctor_id}
-              onChange={onDoctorChange}
-              onDoctorAdded={onDoctorAdded}
-            />
-          </div>
+          <DoctorSelect
+            label="Consultant Doctor"
+            doctors={doctors}
+            value={form.doctor_id}
+            onChange={onDoctorChange}
+            onDoctorAdded={onDoctorAdded}
+          />
           <div className="md:col-span-2"><label className="label">Symptoms</label><input className="input" value={form.symptoms} onChange={(e) => set('symptoms', e.target.value)} /></div>
           <div>
             <label className="label">Floor</label>
@@ -220,4 +249,4 @@ export default function IPRegistrationForm({ onCreated }) {
       </div>
     </form>
   )
-}
+} 

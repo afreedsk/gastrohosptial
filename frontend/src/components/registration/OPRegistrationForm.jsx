@@ -26,7 +26,8 @@ const empty = {
   title: 'Mr', first_name: '', last_name: '', gender: 'Male', dob: '', age: '',
   email: '', mobile: '', alt_phone: '', aadhar_number: '',
   visit_type: 'General', guardian_relation: '', guardian_name: '', guardian_mobile: '',
-  street_address: '', doctor_id: '', consultation_fee: 0,
+  street_address: '', village: '', mandal: '', district: '', state: '', pincode: '',
+  doctor_id: '', consultation_fee: 0,
   referral_type: 'Walkin', referral_doctor_name: '', appointment_date: '', appointment_time: '',
   payment_mode: 'Cash', registration_fee: 0, abha_number: '', occupation: '',
   blood_group: '', mlc: false, booking_type: 'Walk-in',
@@ -43,8 +44,27 @@ export default function OPRegistrationForm({ onCreated }) {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
+  // DOB -> Age: whenever the actual date picker changes, recompute age
+  // precisely (accounts for whether this year's birthday has passed yet).
   const onDobChange = (value) => {
     setForm((f) => ({ ...f, dob: value, age: calcAge(value) }))
+  }
+
+  // Age -> DOB: if the clerk types an age first (before knowing the exact
+  // DOB), default the date of birth to 1 Jan of the matching birth year
+  // (today's year minus the typed age). The DOB field stays fully editable
+  // afterwards — editing it manually goes through onDobChange above, which
+  // then recalculates the precise age from the real date.
+  const onAgeChange = (value) => {
+    setForm((f) => {
+      const next = { ...f, age: value }
+      const ageNum = parseInt(value, 10)
+      if (value !== '' && !isNaN(ageNum) && ageNum >= 0) {
+        const birthYear = new Date().getFullYear() - ageNum
+        next.dob = `${birthYear}-01-01`
+      }
+      return next
+    })
   }
 
   // Handles both "picked an existing doctor" and "just created + auto-selected
@@ -69,6 +89,7 @@ export default function OPRegistrationForm({ onCreated }) {
     e.preventDefault()
     setError('')
     if (!form.first_name || !form.mobile) return setError('First name and mobile are required')
+    if (!form.village.trim() || !form.district.trim()) return setError('Village and District are required')
     setSaving(true)
     try {
       // age is derived from dob for display only — op_registrations has no
@@ -112,7 +133,10 @@ export default function OPRegistrationForm({ onCreated }) {
               <option>Male</option><option>Female</option><option>Other</option>
             </select>
           </div>
-          <div><label className="label">DOB</label><input type="date" className="input" value={form.dob} onChange={(e) => onDobChange(e.target.value)} /></div>
+          <div>
+            <label className="label">DOB</label>
+            <input type="date" className="input" value={form.dob} onChange={(e) => onDobChange(e.target.value)} />
+          </div>
           <div>
             <label className="label">Age</label>
             <input
@@ -120,8 +144,8 @@ export default function OPRegistrationForm({ onCreated }) {
               min="0"
               className="input"
               value={form.age}
-              onChange={(e) => set('age', e.target.value)}
-              placeholder="Auto from DOB"
+              onChange={(e) => onAgeChange(e.target.value)}
+              placeholder="Enter age or pick DOB"
             />
           </div>
           <div><label className="label">Mobile *</label><input className="input" required value={form.mobile} onChange={(e) => set('mobile', e.target.value)} /></div>
@@ -146,26 +170,40 @@ export default function OPRegistrationForm({ onCreated }) {
         </div>
       </Section>
 
+      <Section title="Address">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div>
+            <label className="label">Village *</label>
+            <input className="input" required value={form.village} onChange={(e) => set('village', e.target.value)} />
+          </div>
+          <div><label className="label">Mandal</label><input className="input" value={form.mandal} onChange={(e) => set('mandal', e.target.value)} /></div>
+          <div>
+            <label className="label">District *</label>
+            <input className="input" required value={form.district} onChange={(e) => set('district', e.target.value)} />
+          </div>
+          <div><label className="label">State</label><input className="input" value={form.state} onChange={(e) => set('state', e.target.value)} /></div>
+          <div><label className="label">Pincode</label><input className="input" value={form.pincode} onChange={(e) => set('pincode', e.target.value)} /></div>
+          <div><label className="label">Street Address</label><input className="input" value={form.street_address} onChange={(e) => set('street_address', e.target.value)} /></div>
+        </div>
+      </Section>
+
       <Section title="Guardian Details">
         <div className="grid grid-cols-3 gap-4">
           <input className="input" placeholder="Guardian Relationship" value={form.guardian_relation} onChange={(e) => set('guardian_relation', e.target.value)} />
           <input className="input" placeholder="Parent / Guardian Name" value={form.guardian_name} onChange={(e) => set('guardian_name', e.target.value)} />
           <input className="input" placeholder="Guardian Mobile" value={form.guardian_mobile} onChange={(e) => set('guardian_mobile', e.target.value)} />
         </div>
-        <input className="input mt-4" placeholder="Street Address" value={form.street_address} onChange={(e) => set('street_address', e.target.value)} />
       </Section>
 
       <Section title="Consultation">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <div>
-            <label className="label">Consultant Doctor</label>
-            <DoctorSelect
-              doctors={doctors}
-              value={form.doctor_id}
-              onChange={onDoctorChange}
-              onDoctorAdded={onDoctorAdded}
-            />
-          </div>
+          <DoctorSelect
+            label="Consultant Doctor"
+            doctors={doctors}
+            value={form.doctor_id}
+            onChange={onDoctorChange}
+            onDoctorAdded={onDoctorAdded}
+          />
           <div><label className="label">Consultation Fee</label><input type="number" className="input" value={form.consultation_fee} onChange={(e) => set('consultation_fee', e.target.value)} /></div>
           <div>
             <label className="label">Referral Type</label>
@@ -177,13 +215,11 @@ export default function OPRegistrationForm({ onCreated }) {
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
           {form.referral_type === 'Doctor' && (
-            <div>
-              <label className="label">Referring Doctor Name</label>
-              <ReferringDoctorSelect
-                value={form.referral_doctor_name}
-                onChange={(name) => set('referral_doctor_name', name)}
-              />
-            </div>
+            <ReferringDoctorSelect
+              label="Referring Doctor Name"
+              value={form.referral_doctor_name}
+              onChange={(name) => set('referral_doctor_name', name)}
+            />
           )}
           <div><label className="label">Appointment Date</label><input type="date" className="input" value={form.appointment_date} onChange={(e) => set('appointment_date', e.target.value)} /></div>
           <div><label className="label">Appointment Time</label><input type="time" className="input" value={form.appointment_time} onChange={(e) => set('appointment_time', e.target.value)} /></div>

@@ -38,11 +38,19 @@ def create_op_registration():
     if not d.get("first_name") or not d.get("mobile") or not d.get("gender"):
         return jsonify({"error": "first_name, mobile and gender are required"}), 400
 
+    village = blank_to_none(d.get("village"))
+    district = blank_to_none(d.get("district"))
+    if not village or not district:
+        return jsonify({"error": "village and district are required"}), 400
+
     user_id = get_jwt_identity()
     full_name = f"{d.get('title', '')} {d.get('first_name')} {d.get('last_name', '')}".strip()
 
     dob = blank_to_none(d.get("dob"))
     age = calc_age(dob)
+    mandal = blank_to_none(d.get("mandal"))
+    state = blank_to_none(d.get("state"))
+    pincode = blank_to_none(d.get("pincode"))
 
     # find-or-create the underlying patient record (by mobile) so repeat
     # visits share one MR Number instead of creating duplicate patients
@@ -56,14 +64,15 @@ def create_op_registration():
         patient_id = query("""
             INSERT INTO patients (
                 patient_uid, reg_no, name, gender, dob, age, blood_group, email, phone,
-                alt_phone, aadhar_number, occupation, street, guardian_name,
-                guardian_relation, guardian_phone, created_by
-            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                alt_phone, aadhar_number, occupation, street, village, mandal, district,
+                state, pincode, guardian_name, guardian_relation, guardian_phone, created_by
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """, (
             patient_uid, reg_no, full_name, d.get("gender"), dob, age,
             blank_to_none(d.get("blood_group")), blank_to_none(d.get("email")), d.get("mobile"),
             blank_to_none(d.get("alt_phone")), blank_to_none(d.get("aadhar_number")),
             blank_to_none(d.get("occupation")), blank_to_none(d.get("street_address")),
+            village, mandal, district, state, pincode,
             blank_to_none(d.get("guardian_name")), blank_to_none(d.get("guardian_relation")),
             blank_to_none(d.get("guardian_mobile")), user_id
         ), fetch=False, commit=True)
@@ -75,11 +84,12 @@ def create_op_registration():
         INSERT INTO op_registrations (
             patient_id, opd_reg_no, token_no, title, first_name, last_name, gender, dob,
             email, mobile, alt_phone, aadhar_number, visit_type, guardian_relation,
-            guardian_name, guardian_mobile, street_address, doctor_id, consultation_fee,
+            guardian_name, guardian_mobile, street_address, village, mandal, district,
+            state, pincode, doctor_id, consultation_fee,
             referral_type, referral_doctor_name, appointment_date, appointment_time,
             payment_mode, registration_fee, abha_number, occupation, blood_group, mlc,
             booking_type, created_by
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
     """, (
         patient_id, opd_reg_no, token_no, blank_to_none(d.get("title")), d.get("first_name"),
         blank_to_none(d.get("last_name")), d.get("gender"), dob,
@@ -87,6 +97,7 @@ def create_op_registration():
         blank_to_none(d.get("aadhar_number")), d.get("visit_type", "General"),
         blank_to_none(d.get("guardian_relation")), blank_to_none(d.get("guardian_name")),
         blank_to_none(d.get("guardian_mobile")), blank_to_none(d.get("street_address")),
+        village, mandal, district, state, pincode,
         blank_to_none(d.get("doctor_id")), d.get("consultation_fee", 0) or 0,
         d.get("referral_type", "Walkin"), blank_to_none(d.get("referral_doctor_name")),
         blank_to_none(d.get("appointment_date")), blank_to_none(d.get("appointment_time")),

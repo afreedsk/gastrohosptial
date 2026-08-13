@@ -34,6 +34,7 @@ const NAV_TREE = [
       {
         type: 'group', key: 'billing-op', label: 'OP',
         children: [
+          { label: 'OP Billing', to: '/executive/op-billing' },
           { label: 'OP Lab', to: '/executive/op-lab' },
           { label: 'OP Services', to: '/executive/op-services' },
           { label: 'OP Procedures', to: '/executive/op-procedures' },
