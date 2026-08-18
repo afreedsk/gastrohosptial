@@ -7,18 +7,19 @@ import {
   StatusBadge,
 } from '../../components/PageHeader'
 import RoomChargeModal from '../../components/registration/RoomChargeModal'
+import CatalogPickerModal from '../../components/registration/CatalogPickerModal'
 
 const CHARGE_ROWS = [
   { key: 'admission_charge', label: 'Admission Charges' },
-  { key: 'room_charge', label: 'Room Charges' },
+  { key: 'room_charge', label: 'Room Charges', picker: 'room' },
   { key: 'doctor_visit_charge', label: 'Doctor Visit' },
-  { key: 'lab_charge', label: 'Lab' },
+  { key: 'lab_charge', label: 'Lab', picker: 'lab' },
   { key: 'radiology_charge', label: 'Radiology' },
   { key: 'ot_charge', label: 'OT Charges' },
-  { key: 'procedure_charge', label: 'Procedures / Surgeries' },
+  { key: 'procedure_charge', label: 'Procedures / Surgeries', picker: 'procedure' },
   { key: 'medicine_charge', label: 'Medicines' },
   { key: 'nursing_charge', label: 'Nursing Services' },
-  { key: 'service_charge', label: 'Services' },
+  { key: 'service_charge', label: 'Services', picker: 'service' },
   { key: 'food_charge', label: 'Food' },
   { key: 'misc_charge', label: 'Miscellaneous' },
 ]
@@ -36,9 +37,10 @@ export default function IPBilling() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const [roomModalOpen, setRoomModalOpen] = useState(false)
-  // Array of { roomType, days } — one entry per room type selected in the modal
+  const [activePicker, setActivePicker] = useState(null) // 'room' | 'lab' | 'procedure' | 'service' | null
   const [roomSelection, setRoomSelection] = useState(null)
+  // per-key list of selected catalog items, purely for display chips
+  const [pickedItems, setPickedItems] = useState({ lab_charge: [], procedure_charge: [], service_charge: [] })
 
   const loadBills = () => {
     api.get('/ip-billing').then((r) => setBills(r.data))
@@ -66,12 +68,23 @@ export default function IPBilling() {
       room_charge: result.room_charge,
       doctor_visit_charge: result.doctor_visit_charge,
       nursing_charge: result.nursing_charge,
-      // no dedicated assistant-doctor column on ip_bills — added into misc_charge,
-      // on top of whatever misc amount was already entered
+      // no dedicated assistant-doctor column on ip_bills — added into misc_charge
       misc_charge: Number(current.misc_charge || 0) + result.assistant_doctor_charge,
     }))
-    setRoomSelection(result.entries) // [{ roomType, days }, ...]
-    setRoomModalOpen(false)
+    setRoomSelection({ roomType: result.roomType, days: result.days })
+    setActivePicker(null)
+  }
+
+  const applyCatalogSelection = (chargeKey) => (selectedList, total) => {
+    setCharges((current) => ({
+      ...current,
+      [chargeKey]: Number(current[chargeKey] || 0) + total,
+    }))
+    setPickedItems((current) => ({
+      ...current,
+      [chargeKey]: [...current[chargeKey], ...selectedList],
+    }))
+    setActivePicker(null)
   }
 
   const submit = async (e) => {
@@ -95,12 +108,20 @@ export default function IPBilling() {
       setAdvanceAdjusted(0)
       setPaid(0)
       setRoomSelection(null)
+      setPickedItems({ lab_charge: [], procedure_charge: [], service_charge: [] })
       loadBills()
     } catch (err) {
       setError(err.response?.data?.error || 'Could not create bill')
     } finally {
       setSaving(false)
     }
+  }
+
+  const chipSummary = (key) => {
+    const items = pickedItems[key]
+    if (!items?.length) return null
+    const names = items.map((i) => i.investigation_name || i.service_name).join(', ')
+    return <span className="block text-xs text-teal-600 truncate max-w-[220px]" title={names}>{names}</span>
   }
 
   return (
@@ -127,26 +148,27 @@ export default function IPBilling() {
               </p>
             )}
 
-            <div className="space-y-2 my-3 max-h-64 overflow-y-auto pr-1">
+            <div className="space-y-2 my-3 max-h-72 overflow-y-auto pr-1">
               {CHARGE_ROWS.map((c) => (
                 <div key={c.key} className="flex items-center justify-between gap-3">
                   <span className="text-sm text-ink/70">
                     {c.label}
-                    {c.key === 'room_charge' && roomSelection?.length > 0 && (
+                    {c.key === 'room_charge' && roomSelection && (
                       <span className="block text-xs text-teal-600">
-                        {roomSelection.map((r) => `${r.roomType} · ${r.days}d`).join(', ')}
+                        {roomSelection.roomType} · {roomSelection.days} day(s)
                       </span>
                     )}
+                    {c.picker && c.picker !== 'room' && chipSummary(c.key)}
                   </span>
 
-                  {c.key === 'room_charge' ? (
+                  {c.picker ? (
                     <input
                       type="number"
                       readOnly
-                      onClick={() => setRoomModalOpen(true)}
+                      onClick={() => setActivePicker(c.picker)}
                       className="input w-28 text-right cursor-pointer bg-teal-50/50"
                       value={charges[c.key]}
-                      title="Click to set room type, days, and charges"
+                      title={`Click to select ${c.label.toLowerCase()}`}
                     />
                   ) : (
                     <input
@@ -228,13 +250,47 @@ export default function IPBilling() {
         </div>
       </div>
 
-      {roomModalOpen && (
+      {activePicker === 'room' && (
         <RoomChargeModal
           initial={roomSelection}
           onApply={applyRoomCharge}
-          onClose={() => setRoomModalOpen(false)}
+          onClose={() => setActivePicker(null)}
+        />
+      )}
+
+      {activePicker === 'lab' && (
+        <CatalogPickerModal
+          title="Lab Investigations"
+          endpoint="/catalog/lab"
+          groupField="department"
+          nameField="investigation_name"
+          onApply={applyCatalogSelection('lab_charge')}
+          onClose={() => setActivePicker(null)}
+        />
+      )}
+
+      {activePicker === 'procedure' && (
+        <CatalogPickerModal
+          title="Procedures"
+          endpoint="/catalog/services"
+          groupField="service_type"
+          nameField="service_name"
+          extraParams={{ type: 'PROCEDURE CHARGES' }}
+          onApply={applyCatalogSelection('procedure_charge')}
+          onClose={() => setActivePicker(null)}
+        />
+      )}
+
+      {activePicker === 'service' && (
+        <CatalogPickerModal
+          title="Services"
+          endpoint="/catalog/services"
+          groupField="service_type"
+          nameField="service_name"
+          onApply={applyCatalogSelection('service_charge')}
+          onClose={() => setActivePicker(null)}
         />
       )}
     </div>
   )
-} 
+}

@@ -77,7 +77,7 @@ export default function DoctorSelect({ label = 'Consultant Doctor', doctors, val
             onClick={startAdd}
             className="text-xs text-teal-600 underline hover:text-teal-700"
           >
-            Add New +
+            {/* Add New + */}
           </button>
         )}
       </div>

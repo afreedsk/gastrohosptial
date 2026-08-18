@@ -1,5 +1,6 @@
 import os
 import traceback
+from datetime import timedelta
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
@@ -23,6 +24,7 @@ from routes.ip_registrations import ip_reg_bp
 from routes.patient_records import patient_records_bp
 from routes.room_occupancy import room_occupancy_bp
 from routes.direct_services import direct_services_bp
+from routes.catalog import catalog_bp
 
 DEBUG = os.getenv("FLASK_ENV", "development") == "development"
 
@@ -30,6 +32,7 @@ DEBUG = os.getenv("FLASK_ENV", "development") == "development"
 def create_app():
     app = Flask(__name__)
     app.config["JWT_SECRET_KEY"] = Config.JWT_SECRET_KEY
+    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=8)
     app.config["DEBUG"] = DEBUG
     CORS(app, resources={r"/api/*": {"origins": "*"}})
     JWTManager(app)
@@ -52,7 +55,7 @@ def create_app():
     app.register_blueprint(room_occupancy_bp, url_prefix="/api/room-occupancy")
     app.register_blueprint(direct_services_bp, url_prefix="/api/direct-services")
     app.register_blueprint(users_bp, url_prefix="/api/users")
-
+    app.register_blueprint(catalog_bp, url_prefix="/api/catalog")
     @app.route("/api/health")
     def health():
         return jsonify({"status": "ok"})
