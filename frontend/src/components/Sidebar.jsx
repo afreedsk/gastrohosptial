@@ -3,6 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, UserPlus, BedDouble, CalendarCheck, Receipt,
   FileBarChart, Ban, ChevronDown, ChevronRight, LogOut, Users, ShieldAlert,
+  ExternalLink,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
@@ -45,6 +46,7 @@ const NAV_TREE = [
   {
     type: 'group', key: 'ip-admission', label: 'IP Admission', icon: BedDouble, roles: ALL_ROLES,
     children: [
+      { label: 'IP Details', to: '/executive/ip-details' },
       { label: 'Admission', to: '/executive/ip-admission' },
       { label: 'Room Transfer', to: '/executive/room-transfer' },
     ],
@@ -196,6 +198,20 @@ export default function Sidebar() {
           <ShieldAlert size={16} className="shrink-0" />
           Billing Management
         </NavLink>
+
+        {/* Pharmacy is a fully separate module — opens in a new tab with its
+            own sidebar/dashboard. Plain <a> + target="_blank" is used instead
+            of NavLink since this isn't client-side routing within this app
+            instance. The auth token in localStorage carries over automatically. */}
+        <a
+          href="/pharmacy/dashboard"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 px-4 py-2.5 text-sm text-ink/60 hover:bg-ink/5"
+        >
+          <ExternalLink size={16} className="shrink-0" />
+          Pharmacy
+        </a>
 
         {user.role === 'super_admin' && (
           <NavLink to="/superadmin/users" className={({ isActive }) => linkClass(isActive)}>

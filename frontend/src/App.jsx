@@ -26,14 +26,34 @@ import PatientStatus from './pages/executive/PatientStatus'
 import RoomTransferApproval from './pages/executive/RoomTransferApproval'
 import RoomOccupation from './pages/executive/RoomOccupation'
 import DirectServices from './pages/executive/DirectServices'
+import PharmacyLayout from './components/pharmacy/PharmacyLayout'
+import PharmacyDashboard from './pages/pharmacy/Dashboard'
+import PharmacyComingSoon from './pages/pharmacy/ComingSoon'
+import InpatientSales from './pages/pharmacy/InpatientSales'
+import OutpatientSales from './pages/pharmacy/OutpatientSales'
+import PatientIndents from './pages/pharmacy/PatientIndents'
+import OTIndents from './pages/pharmacy/OTIndents'
+import AdvancePayment from './pages/executive/AdvancePayment'
+import AdvancePaymentDetail from './pages/executive/AdvancePaymentDetail'
+import IPDetails from './pages/executive/IPDetails'
+import IPLabReport from './pages/executive/reports/IPLabReport'
+import OPLabReport from './pages/executive/reports/OPLabReport'
+import IPRadiologyReport from './pages/executive/reports/IPRadiologyReport'
+import OPRadiologyReport from './pages/executive/reports/OPRadiologyReport'
 
 function withLayout(el) {
   return <Layout>{el}</Layout>
 }
+function withPharmacyLayout(el) {
+  return <PharmacyLayout>{el}</PharmacyLayout>
+}
 
 const EXEC_ROLES = ['executive', 'admin', 'super_admin']
 
-// label -> path for every not-yet-built module, rendered via ComingSoon
+// label -> path for every not-yet-built module, rendered via ComingSoon.
+// The 4 lab/radiology report paths used to live here — they now have real
+// pages (see the explicit <Route> block below), so they were removed from
+// this list.
 const PLACEHOLDERS = [
   ['Inpatient Dashboard', '/executive/inpatient-dashboard'],
   ['Outpatient Dashboard', '/executive/outpatient-dashboard'],
@@ -42,10 +62,37 @@ const PLACEHOLDERS = [
   ['New Discharge Summary', '/executive/new-discharge-summary'],
   ['Billing Summary', '/executive/billing-summary'],
   ['Referral Doctor', '/executive/referral-doctor'],
-  ['Inpatient Lab Reports', '/executive/reports/ip-lab'],
-  ['Outpatient Lab Reports', '/executive/reports/op-lab'],
-  ['Inpatient Radiology Reports', '/executive/reports/ip-radiology'],
-  ['Outpatient Radiology Reports', '/executive/reports/op-radiology'],
+]
+
+const PHARMACY_ROLES = EXEC_ROLES
+
+const PHARMACY_PLACEHOLDERS = [
+  ['Inventory Type', '/pharmacy/masters/inventory-type'],
+  ['Item Type', '/pharmacy/masters/item-type'],
+  ['Supplier', '/pharmacy/masters/supplier'],
+  ['Manufacturer', '/pharmacy/masters/manufacturer'],
+  ['Tax Categories', '/pharmacy/masters/tax-categories'],
+  ['Rack Master', '/pharmacy/masters/rack-master'],
+  ['Item Master', '/pharmacy/masters/item-master'],
+  ['Item Package Master', '/pharmacy/masters/item-package-master'],
+  ['Drug Combination', '/pharmacy/masters/drug-combination'],
+  ['Purchase Order', '/pharmacy/transaction/purchase-order'],
+  ['Goods Receive Note', '/pharmacy/transaction/goods-receive-note'],
+  ['Stock Adjustments', '/pharmacy/transaction/stock-adjustments'],
+  ['Stock Returns', '/pharmacy/transaction/stock-returns'],
+  ['Inpatient Sales Returns', '/pharmacy/sales-returns/inpatient'],
+  ['Outpatient Sales Returns', '/pharmacy/sales-returns/outpatient'],
+  ['Duplicate Invoice', '/pharmacy/duplicate-invoice'],
+  ['Total Dues', '/pharmacy/reports/total-dues'],
+  ['Due Reported Sales', '/pharmacy/reports/due-reported-sales'],
+  ['Sales Returns Report', '/pharmacy/reports/sales-returns'],
+  ['OP/IP Sales Report', '/pharmacy/reports/op-ip-sales'],
+  ['OP/IP Due Report', '/pharmacy/reports/op-ip-due'],
+  ['Pharmacy Report', '/pharmacy/reports/pharmacy'],
+  ['Sales Report', '/pharmacy/reports/sales'],
+  ['Due Collections', '/pharmacy/due-collections'],
+  ['Stock', '/pharmacy/stock'],
+  ['Expenses', '/pharmacy/expenses'],
 ]
 
 export default function App() {
@@ -109,6 +156,53 @@ export default function App() {
 } />
 <Route path="/executive/patient-status" element={
   <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<PatientStatus />)}</ProtectedRoute>
+} />
+
+<Route path="/pharmacy/dashboard" element={
+  <ProtectedRoute roles={PHARMACY_ROLES}>{withPharmacyLayout(<PharmacyDashboard />)}</ProtectedRoute>
+} />
+
+{PHARMACY_PLACEHOLDERS.map(([label, path]) => (
+  <Route key={path} path={path} element={
+    <ProtectedRoute roles={PHARMACY_ROLES}>{withPharmacyLayout(<PharmacyComingSoon title={label} />)}</ProtectedRoute>
+  } />
+))}
+
+<Route path="/executive/ip-advance" element={
+  <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<AdvancePayment />)}</ProtectedRoute>
+} />
+<Route path="/executive/ip-advance/:id" element={
+  <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<AdvancePaymentDetail />)}</ProtectedRoute>
+} />
+<Route path="/executive/ip-details" element={
+  <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<IPDetails />)}</ProtectedRoute>
+} />
+
+<Route path="/pharmacy/sales/inpatient" element={
+  <ProtectedRoute roles={PHARMACY_ROLES}>{withPharmacyLayout(<InpatientSales />)}</ProtectedRoute>
+} />
+<Route path="/pharmacy/sales/outpatient" element={
+  <ProtectedRoute roles={PHARMACY_ROLES}>{withPharmacyLayout(<OutpatientSales />)}</ProtectedRoute>
+} />
+<Route path="/pharmacy/sales/patient-indents" element={
+  <ProtectedRoute roles={PHARMACY_ROLES}>{withPharmacyLayout(<PatientIndents />)}</ProtectedRoute>
+} />
+<Route path="/pharmacy/sales/ot-indents" element={
+  <ProtectedRoute roles={PHARMACY_ROLES}>{withPharmacyLayout(<OTIndents />)}</ProtectedRoute>
+} />
+
+{/* Lab / Radiology reports — real pages now, no longer ComingSoon */}
+<Route path="/executive/reports/ip-lab" element={
+  <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<IPLabReport />)}</ProtectedRoute>
+} />
+<Route path="/executive/reports/op-lab" element={
+  <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<OPLabReport />)}</ProtectedRoute>
+} />
+<Route path="/executive/reports/ip-radiology" element={
+  <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<IPRadiologyReport />)}</ProtectedRoute>
+} />
+<Route path="/executive/reports/op-radiology" element={
+  <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<OPRadiologyReport />)}</ProtectedRoute>
 } />
 
         {PLACEHOLDERS.map(([label, path]) => (
