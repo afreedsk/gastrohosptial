@@ -7,14 +7,8 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
-// Roles allowed to see the whole nav below. Adjust per-item if some entries
-// should be restricted further (e.g. only admins seeing Cancellations).
 const ALL_ROLES = ['executive', 'admin', 'super_admin']
 
-// Nav tree. Each node is either:
-//   { type: 'link', label, to, icon }                — a direct route
-//   { type: 'group', key, label, icon, children: [] } — an expandable group
-// Groups can nest other groups (used for Billing > IP / OP).
 const NAV_TREE = [
   { type: 'link', label: 'Patient Registration', to: '/executive/patient-registration', icon: UserPlus, roles: ALL_ROLES },
   { type: 'link', label: 'Appointments', to: '/executive/appointments', icon: CalendarCheck, roles: ALL_ROLES },
@@ -47,8 +41,13 @@ const NAV_TREE = [
     type: 'group', key: 'ip-admission', label: 'IP Admission', icon: BedDouble, roles: ALL_ROLES,
     children: [
       { label: 'IP Details', to: '/executive/ip-details' },
-      { label: 'Admission', to: '/executive/ip-admission' },
-      { label: 'Room Transfer', to: '/executive/room-transfer' },
+      // FIXED: was '/executive/ip-admission' which had no matching route in
+      // App.jsx, so it silently redirected to /login. Points at the real
+      // Admission page now.
+      { label: 'Admission', to: '/executive/admission' },
+      // FIXED: was '/executive/room-transfer' — no matching route existed.
+      // The real page is registered at '/executive/room-transfer-approval'.
+      { label: 'Room Transfer', to: '/executive/room-transfer-approval' },
     ],
   },
   {
@@ -75,12 +74,6 @@ const NAV_TREE = [
   },
 ]
 
-// Padding lookups keyed by nesting depth. Every value here is a full literal
-// class name from Tailwind's default spacing scale (4, 8, 11, 16 — NOT 17,
-// which doesn't exist in the scale and silently renders as no padding).
-// depth 0 = top-level group/link (has its own icon)
-// depth 1 = leaf directly inside a depth-0 group, OR a nested sub-group header (no icon)
-// depth 2 = leaf inside a nested sub-group (e.g. Billing > IP > "IP Billing")
 const TOP_PADDING = ['px-4']
 const GROUP_HEADER_PADDING = ['px-4', 'pl-8 pr-4']
 const LEAF_PADDING = ['pl-11 pr-4', 'pl-11 pr-4', 'pl-16 pr-4']
@@ -117,10 +110,6 @@ export default function Sidebar() {
     navigate('/login', { replace: true })
   }
 
-  // Renders a single nav node (link, leaf, or group), recursing for nested
-  // groups. `shaded` tracks whether an ancestor group has already applied
-  // the background tint, so it's applied exactly once per open branch
-  // instead of stacking darker with every nesting level.
   const renderNode = (node, depth, shaded) => {
     if (node.type === 'link') {
       const Icon = node.icon
@@ -132,7 +121,6 @@ export default function Sidebar() {
       )
     }
 
-    // Plain leaf item inside a group's children array (no explicit type/icon)
     if (!node.type && node.to) {
       return (
         <NavLink
@@ -149,7 +137,6 @@ export default function Sidebar() {
       )
     }
 
-    // Group (possibly nested)
     const allLinks = flattenLinks(node)
     const isOpen = openGroups[node.key] ?? allLinks.some((to) => location.pathname === to)
     const GroupIcon = node.icon
@@ -198,12 +185,8 @@ export default function Sidebar() {
           <ShieldAlert size={16} className="shrink-0" />
           Billing Management
         </NavLink>
-
-        {/* Pharmacy is a fully separate module — opens in a new tab with its
-            own sidebar/dashboard. Plain <a> + target="_blank" is used instead
-            of NavLink since this isn't client-side routing within this app
-            instance. The auth token in localStorage carries over automatically. */}
-        <a
+<a
+        
           href="/pharmacy/dashboard"
           target="_blank"
           rel="noopener noreferrer"

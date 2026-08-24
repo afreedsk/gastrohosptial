@@ -4,6 +4,7 @@ import api from '../../api/axios'
 import { Section } from '../PageHeader'
 import PatientSearchPicker from './PatientSearchPicker'
 import DoctorSelect from './DoctorSelect'
+import ReferringDoctorSelect from './ReferringDoctorSelect'  // NEW
 
 const REFERRAL_TYPES = ['Walkin', 'Online', 'Doctor', 'Hospital User', 'Other', 'Camp', 'Ads', 'Friend/Family', 'Marketing']
 const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Cheque', 'NEFT', 'Credit']
@@ -31,7 +32,8 @@ const empty = {
   village: '', mandal: '', district: '', pincode: '',
   guardian_name: '', guardian_relation: '', guardian_mobile: '', mother_name: '',
   doctor_id: '', symptoms: '', floor: '1st Floor', room_type: 'General', room_no: '', bed_no: '',
-  referral_type: 'Walkin', payment_mode: 'Cash', advance_amount: 0, booking_type: 'Walk-in',
+  referral_type: 'Walkin', referral_doctor_name: '',  // NEW
+  payment_mode: 'Cash', advance_amount: 0, booking_type: 'Walk-in',
   abha_number: '', admitted_date: new Date().toISOString().slice(0, 10),
 }
 
@@ -46,15 +48,12 @@ export default function IPRegistrationForm({ onCreated }) {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
-  // DOB -> Age (precise, accounts for whether this year's birthday has passed)
+  // DOB -> Age
   const onDobChange = (value) => {
     setForm((f) => ({ ...f, dob: value, age: calcAge(value) }))
   }
 
-  // Age -> DOB: defaults DOB to 1 Jan of the matching birth year when the
-  // clerk types an age before knowing the exact date. DOB stays editable
-  // afterwards — editing it goes through onDobChange, which recalculates
-  // the precise age.
+  // Age -> DOB
   const onAgeChange = (value) => {
     setForm((f) => {
       const next = { ...f, age: value }
@@ -68,15 +67,39 @@ export default function IPRegistrationForm({ onCreated }) {
   }
 
   const onDoctorChange = (id) => set('doctor_id', id)
-
   const onDoctorAdded = (doc) => setDoctors((prev) => [...prev, doc])
 
-  const applyExistingPatient = (patient) => {
+  // Patient selection: fill basic data + fetch last IP registration
+  const applyExistingPatient = async (patient) => {
     setForm((f) => ({
       ...f,
       ...patient,
       age: patient.dob ? calcAge(patient.dob) : (patient.age ?? ''),
     }))
+
+    // Fetch last IP registration for this patient
+    try {
+      const { data } = await api.get(`/ip-registrations/patient/${patient.id}/last`)
+      if (data) {
+        setForm((f) => ({
+          ...f,
+          floor: data.floor || f.floor,
+          room_type: data.room_type || f.room_type,
+          room_no: data.room_no || f.room_no,
+          bed_no: data.bed_no || f.bed_no,
+          referral_type: data.referral_type || f.referral_type,
+          referral_doctor_name: data.referral_doctor_name || f.referral_doctor_name,
+          payment_mode: data.payment_mode || f.payment_mode,
+          advance_amount: data.advance_amount || f.advance_amount,
+          booking_type: data.booking_type || f.booking_type,
+          doctor_id: data.doctor_id || f.doctor_id,
+          symptoms: data.symptoms || f.symptoms,
+          admitted_date: data.admitted_date || f.admitted_date,
+        }))
+      }
+    } catch (err) {
+      console.error('Failed to fetch last IP registration:', err)
+    }
   }
 
   const submit = async (e) => {
@@ -225,6 +248,16 @@ export default function IPRegistrationForm({ onCreated }) {
               {REFERRAL_TYPES.map((r) => <option key={r}>{r}</option>)}
             </select>
           </div>
+          {/* Conditional referral doctor select */}
+          {form.referral_type === 'Doctor' && (
+            <div className="md:col-span-2">
+              <ReferringDoctorSelect
+                label="Referring Doctor Name"
+                value={form.referral_doctor_name}
+                onChange={(name) => set('referral_doctor_name', name)}
+              />
+            </div>
+          )}
           <div>
             <label className="label">Payment Mode</label>
             <select className="input" value={form.payment_mode} onChange={(e) => set('payment_mode', e.target.value)}>
@@ -249,4 +282,4 @@ export default function IPRegistrationForm({ onCreated }) {
       </div>
     </form>
   )
-} 
+}

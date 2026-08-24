@@ -136,3 +136,17 @@ def list_op_registrations():
         ORDER BY r.id DESC
     """, (like, like, like, like), many=True)
     return jsonify(rows)
+
+
+# NEW: Get the last OP registration for a patient
+@op_reg_bp.route("/patient/<int:patient_id>/last", methods=["GET"])
+@jwt_required()
+def get_last_op_registration(patient_id):
+    row = query("""
+        SELECT r.*, doc.name AS doctor_name
+        FROM op_registrations r
+        LEFT JOIN doctors doc ON doc.id = r.doctor_id
+        WHERE r.patient_id = %s
+        ORDER BY r.created_at DESC LIMIT 1
+    """, (patient_id,))
+    return jsonify(row) if row else jsonify(None), 200

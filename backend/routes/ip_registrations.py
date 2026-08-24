@@ -78,9 +78,10 @@ def create_ip_registration():
             state, city, locality, street_address, village, mandal, district, pincode,
             guardian_name, guardian_relation,
             guardian_mobile, mother_name, doctor_id, symptoms, floor, room_type, room_no, bed_no,
-            referral_type, payment_mode, advance_amount, booking_type, abha_number,
+            referral_type, referral_doctor_name,  -- added referral_doctor_name
+            payment_mode, advance_amount, booking_type, abha_number,
             admitted_date, created_by
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
     """, (
         patient_id, ip_reg_no, blank_to_none(d.get("opd_reg_no")), blank_to_none(d.get("title")),
         d.get("first_name"), blank_to_none(d.get("last_name")), d.get("gender"), age, dob,
@@ -95,9 +96,10 @@ def create_ip_registration():
         blank_to_none(d.get("doctor_id")), blank_to_none(d.get("symptoms")),
         blank_to_none(d.get("floor")), d.get("room_type", "General"),
         blank_to_none(d.get("room_no")), blank_to_none(d.get("bed_no")),
-        d.get("referral_type", "Walkin"), d.get("payment_mode", "Cash"),
-        d.get("advance_amount", 0) or 0, d.get("booking_type", "Walk-in"),
-        blank_to_none(d.get("abha_number")), admitted_date, user_id
+        d.get("referral_type", "Walkin"), blank_to_none(d.get("referral_doctor_name")),
+        d.get("payment_mode", "Cash"), d.get("advance_amount", 0) or 0,
+        d.get("booking_type", "Walk-in"), blank_to_none(d.get("abha_number")),
+        admitted_date, user_id
     ), fetch=False, commit=True)
 
     log_audit(user_id, "CREATE", "IP Registration", rid)
@@ -115,7 +117,7 @@ def create_ip_registration():
 @jwt_required()
 def list_ip_registrations():
     search = request.args.get("search", "")
-    status = request.args.get("status")  # e.g. 'Admitted'
+    status = request.args.get("status")
     like = f"%{search}%"
 
     sql = """
@@ -137,6 +139,7 @@ def list_ip_registrations():
     sql += " ORDER BY r.id DESC"
     rows = query(sql, tuple(params), many=True)
     return jsonify(rows)
+
 
 @ip_reg_bp.route("/<int:reg_id>/transfer/request", methods=["POST"])
 @jwt_required()
@@ -220,3 +223,17 @@ def list_transfer_requests():
         ORDER BY r.transfer_requested_at DESC
     """, many=True)
     return jsonify(rows)
+
+
+# NEW: Get the last IP registration for a patient
+@ip_reg_bp.route("/patient/<int:patient_id>/last", methods=["GET"])
+@jwt_required()
+def get_last_ip_registration(patient_id):
+    row = query("""
+        SELECT r.*, doc.name AS doctor_name
+        FROM ip_registrations r
+        LEFT JOIN doctors doc ON doc.id = r.doctor_id
+        WHERE r.patient_id = %s
+        ORDER BY r.created_at DESC LIMIT 1
+    """, (patient_id,))
+    return jsonify(row) if row else jsonify(None), 200

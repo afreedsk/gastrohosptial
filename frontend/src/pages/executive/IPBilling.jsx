@@ -12,14 +12,14 @@ import CatalogPickerModal from '../../components/registration/CatalogPickerModal
 const CHARGE_ROWS = [
   { key: 'admission_charge', label: 'Admission Charges' },
   { key: 'room_charge', label: 'Room Charges', picker: 'room' },
-  { key: 'doctor_visit_charge', label: 'Doctor Visit' },
+  { key: 'service_charge', label: 'Services', picker: 'service' },
+  { key: 'procedure_charge', label: 'Procedures / Surgeries', picker: 'procedure' },
   { key: 'lab_charge', label: 'Lab', picker: 'lab' },
+  { key: 'doctor_visit_charge', label: 'Doctor Visit' },
   { key: 'radiology_charge', label: 'Radiology' },
   { key: 'ot_charge', label: 'OT Charges' },
-  { key: 'procedure_charge', label: 'Procedures / Surgeries', picker: 'procedure' },
   { key: 'medicine_charge', label: 'Medicines' },
   { key: 'nursing_charge', label: 'Nursing Services' },
-  { key: 'service_charge', label: 'Services', picker: 'service' },
   { key: 'food_charge', label: 'Food' },
   { key: 'misc_charge', label: 'Miscellaneous' },
 ]

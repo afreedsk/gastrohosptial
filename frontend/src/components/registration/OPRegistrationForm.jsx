@@ -22,13 +22,18 @@ function calcAge(dobStr) {
   return age >= 0 ? age : ''
 }
 
+// Current date and time for default values
+const now = new Date()
+const defaultDate = now.toISOString().slice(0, 10)
+const defaultTime = now.toTimeString().slice(0, 5) // HH:MM
+
 const empty = {
   title: 'Mr', first_name: '', last_name: '', gender: 'Male', dob: '', age: '',
   email: '', mobile: '', alt_phone: '', aadhar_number: '',
   visit_type: 'General', guardian_relation: '', guardian_name: '', guardian_mobile: '',
   street_address: '', village: '', mandal: '', district: '', state: '', pincode: '',
   doctor_id: '', consultation_fee: 0,
-  referral_type: 'Walkin', referral_doctor_name: '', appointment_date: '', appointment_time: '',
+  referral_type: 'Walkin', referral_doctor_name: '', appointment_date: defaultDate, appointment_time: defaultTime,
   payment_mode: 'Cash', registration_fee: 0, abha_number: '', occupation: '',
   blood_group: '', mlc: false, booking_type: 'Walk-in',
 }
@@ -44,17 +49,12 @@ export default function OPRegistrationForm({ onCreated }) {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
-  // DOB -> Age: whenever the actual date picker changes, recompute age
-  // precisely (accounts for whether this year's birthday has passed yet).
+  // DOB -> Age
   const onDobChange = (value) => {
     setForm((f) => ({ ...f, dob: value, age: calcAge(value) }))
   }
 
-  // Age -> DOB: if the clerk types an age first (before knowing the exact
-  // DOB), default the date of birth to 1 Jan of the matching birth year
-  // (today's year minus the typed age). The DOB field stays fully editable
-  // afterwards — editing it manually goes through onDobChange above, which
-  // then recalculates the precise age from the real date.
+  // Age -> DOB
   const onAgeChange = (value) => {
     setForm((f) => {
       const next = { ...f, age: value }
@@ -67,9 +67,7 @@ export default function OPRegistrationForm({ onCreated }) {
     })
   }
 
-  // Handles both "picked an existing doctor" and "just created + auto-selected
-  // a new doctor" — in both cases doctors already contains the matching row
-  // by the time this runs (existing list, or appended via onDoctorAdded below).
+  // Consultant doctor change -> auto‑fill fee
   const onDoctorChange = (id) => {
     const doc = doctors.find((d) => String(d.id) === String(id))
     set('doctor_id', id)
@@ -81,8 +79,38 @@ export default function OPRegistrationForm({ onCreated }) {
     set('consultation_fee', doc.consultation_fee ?? 0)
   }
 
-  const applyExistingPatient = (patient) => {
-    setForm((f) => ({ ...f, ...patient, age: patient.dob ? calcAge(patient.dob) : (patient.age ?? '') }))
+  // Patient selection: fill basic data + fetch last OP registration
+  const applyExistingPatient = async (patient) => {
+    // Set patient fields
+    setForm((f) => ({
+      ...f,
+      ...patient,
+      age: patient.dob ? calcAge(patient.dob) : (patient.age ?? ''),
+    }))
+
+    // Fetch last OP registration for this patient
+    try {
+      const { data } = await api.get(`/op-registrations/patient/${patient.id}/last`)
+      if (data) {
+        setForm((f) => ({
+          ...f,
+          visit_type: data.visit_type || f.visit_type,
+          referral_type: data.referral_type || f.referral_type,
+          referral_doctor_name: data.referral_doctor_name || f.referral_doctor_name,
+          appointment_date: data.appointment_date || f.appointment_date,
+          appointment_time: data.appointment_time || f.appointment_time,
+          payment_mode: data.payment_mode || f.payment_mode,
+          registration_fee: data.registration_fee || f.registration_fee,
+          mlc: data.mlc || f.mlc,
+          booking_type: data.booking_type || f.booking_type,
+          // Also fill doctor and consultation fee from last registration
+          doctor_id: data.doctor_id || f.doctor_id,
+          consultation_fee: data.consultation_fee || f.consultation_fee,
+        }))
+      }
+    } catch (err) {
+      console.error('Failed to fetch last OP registration:', err)
+    }
   }
 
   const submit = async (e) => {
@@ -92,8 +120,6 @@ export default function OPRegistrationForm({ onCreated }) {
     if (!form.village.trim() || !form.district.trim()) return setError('Village and District are required')
     setSaving(true)
     try {
-      // age is derived from dob for display only — op_registrations has no
-      // age column, so it isn't sent to the backend (matches existing schema)
       const { age, ...payload } = form
       const { data } = await api.post('/op-registrations', payload)
       setSaved(data)
