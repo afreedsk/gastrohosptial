@@ -117,12 +117,30 @@ export default function IPBilling() {
     }
   }
 
-  const chipSummary = (key) => {
-    const items = pickedItems[key]
-    if (!items?.length) return null
-    const names = items.map((i) => i.investigation_name || i.service_name).join(', ')
-    return <span className="block text-xs text-teal-600 truncate max-w-[220px]" title={names}>{names}</span>
-  }
+const chipSummary = (key) => {
+  const items = pickedItems[key]
+
+  if (!items?.length) return null
+
+  const names = items
+    .map(
+      (i) =>
+        i.investigation_name ||
+        i.procedure_name ||
+        i.service_name
+    )
+    .filter(Boolean)
+    .join(', ')
+
+  return (
+    <span
+      className="block text-xs text-teal-600 truncate max-w-[220px]"
+      title={names}
+    >
+      {names}
+    </span>
+  )
+}
 
   return (
     <div>
@@ -269,17 +287,16 @@ export default function IPBilling() {
         />
       )}
 
-      {activePicker === 'procedure' && (
-        <CatalogPickerModal
-          title="Procedures"
-          endpoint="/catalog/services"
-          groupField="service_type"
-          nameField="service_name"
-          extraParams={{ type: 'PROCEDURE CHARGES' }}
-          onApply={applyCatalogSelection('procedure_charge')}
-          onClose={() => setActivePicker(null)}
-        />
-      )}
+{activePicker === 'procedure' && (
+  <CatalogPickerModal
+    title="Procedures"
+    endpoint="/catalog/procedures"
+    groupField="procedure_type"
+    nameField="procedure_name"
+    onApply={applyCatalogSelection('procedure_charge')}
+    onClose={() => setActivePicker(null)}
+  />
+)}
 
       {activePicker === 'service' && (
         <CatalogPickerModal

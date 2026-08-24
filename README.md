@@ -1,2 +1,100 @@
-SNO ServiceName Charge Description
-EMERGENCY Type : EMERGENCY CHARGES (6 TO 12 HRS) 1500.00 1 EMERGENCY CHARGES (2 TO 6 HRS) UPTO SIX HOURS 750.00 2 CPR 2500.00 3 INTUBATION 2500.00 4 STOMACH WASH 2500.00 5 IP Type : LABOUR ROOM CHARGES 3000.00 1 LABOUR ROOM ASSITANT STAFF 2000.00 2 LIVER ABSCESS DRAIN 500.00 3 MRI SCAN CHARGES 4000.00 4 PTCA PROCEDURE CHARGES 120000.00 5 DIALYSIS D 10000.00 6 Angio Stent A 40000.00 7 caronary baloons 16000.00 8 wires 4500.00 9 contast 200ml 4500.00 10 others 5000.00 11 out side 9400.00 12 cath anathesia 5000.00 13 cath tech 2000.00 14 cath lab 40000.00 15 cath surgon 50000.00 16 ambulance 500.00 17 COLONOSCOPY S 8000.00 18 ET TUBE 2500.00 19 OBG Type : COPPER T (PROCEDURE ONLY) 500.00 1 D & C 7700.00 2 CERVIX BIOPSY 1000.00 3 PAP SMEAR 200.00 4 OP Type : DRESSING-MINOR 300.00 1 DRESSING-MAJOR 750.00 2 MISCELLANEOUS CHARGES 0.00 3 1 ASCITIC FLUID ASPIRATION 1500.00 4 DRESSING-BURNS 1000.00 5 ENDOSCOPY ROOM CHARGES(MINOR) EBUS/BAL/ERCP 3000.00 6 ENEMA 300.00 7 FOLEYS CATHETERIZATION 300.00 8 GRBS 50.00 9 ASCITIC FLUID ASPIRATION (HIGH RISK) 2500.00 10 BLOOD TRANSFUSION- EACH UNIT 300.00 11 LIVER ABCESS ASPIRATION (USG GUIDED) 4000.00 12 LIVER ABCESS ASPIR (USG)-HIGH RISK 6000.00 13 PIG TAIL CATHETERIZATION (USG GUIDED) 4000.00 14 PIG TAIL CATHETERIZATION (USG) HR 6000.00 15 RYLES TUBE 300.00 16 SUTURE REMOVAL 300.00 17 USG GUIDED FNAC/BIOPSY 3000.00 18 STEROID INJECTION 7500.00 19 OXYGEN CHARGES - PER HOUR 150.00 20 NECK ABCESS ASPIRATION 6000.00 21 ENDOSCOPY PROCEDURE 500.00 22 CHEMO THERAPY 2000.00 23 cryo biopsy 5000.00 24 LP 2250.00 25 CYSTS REMOVAL 5000.00 26 FLUID TAPPING DD 1500.00 27 LYMPH NODE BIOPSY 15000.00 28 MTP 2100.00 29 FNAC 300.00 30 BARTHOLINE CYST 0.00 31 LIPOMA EXICSION 5500.00 32 CONSULTATION CHARGES 0.00 33 ROOM RENT 0.00 34 GENERAL WARD 0.00 35 MAINTAINANCE FLOOR CHARGES 0.00 36 ECG 1500.00 37 BED SIDE 2000.00 38 NCV- ANY TWO LIMBS 2500.00 39 NCV-FOUR LIMBS 2500.00 40 FACIAL AND RNS 1000.00 41 FACIAL AND BLINK 2200.00 42 EMG 2000.00 43 POP CHARGES POP 2000.00 44 EEG CHARGES 1500.00 45 SLAP CHARGES 2000.00 46 X-RAY 500.00 47 K-WIRE CHARGES 2200.00 48 2 epidural charges 1000.00 49 FLUID CHARGES 350.00 50 screw removal charges 5000.00 51 TENDON SURGERY CHARGES 12000.00 52 amputation charges 15000.00 53 surgery charges 9000.00 54 NAIL REMOVEL CHARGES 2000.00 55 abdomenal scan charges 500.00 56 ECHO CHARGES 100.00 57 ABG ABG 1000.00 58 hospital bill hospital 15000.00 59 FOLLICULARSTUDY 1500.00 60 knee aspiration 7500.00 61 IUI CHARGES 12000.00 62 ATTENDERS ROOM RENT 1000.00 63 IP ADMISSION AMOUNT 100.00 64 procedure charges 500.00 65 biopsy small 1000.00 66 biopsy medium 1500.00 67 biopsy large 2000.00 68 PHYSIO THERAPHY CHARGES 100.00 69 PTP PROCEDURE PTP PROCEDURE 4000.00 70 HOLDER TEST CHARGES . 5000.00 71 ABPM TEST CHARGES 4000.00 72 anjiogram 10000.00 73 DAY CARE ICU S 2000.00 74 LUMBAR PUNCTURE X 8000.00 75 OT Type : EMERGENCY OT CHARGES (FIRST HOUR) 2000.00 1 EMERGENCY OT CHARGES (PER HOUR AFTER FIRST HOUR) 1000.00 2 PROCEDURE CHARGES Type : BRONCHOSCOPY 12000.00 1 PROFESSIONAL CHARGES Type : CAVAFIX 1000.00 1 DIALYSIS(1ST TIME) 20000.00
+CREATE TABLE `users` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(120) NOT NULL,
+  `email` varchar(150) NOT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `role` enum('SuperAdmin','IT','PCM','MedTech','Caredx','Corporate','Adminstrationfunctionalunit','ResearchDevelopment') NOT NULL,
+  `department` varchar(100) DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT '1',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`)
+);
+
+CREATE TABLE `finance_entry_items` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `finance_entry_id` int NOT NULL,
+  `item_name` varchar(200) NOT NULL,
+  `quantity` decimal(12,2) NOT NULL DEFAULT '1.00',
+  `unit_price` decimal(14,2) NOT NULL DEFAULT '0.00',
+  `amount` decimal(14,2) NOT NULL DEFAULT '0.00',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `finance_entry_id` (`finance_entry_id`),
+  CONSTRAINT `finance_entry_items_ibfk_1` FOREIGN KEY (`finance_entry_id`) REFERENCES `finance_entries` (`id`) ON DELETE CASCADE
+);
+
+CREATE TABLE `finance_entries` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `department` enum('IT','PCM','MedTech','Caredx','Corporate','Adminstrationfunctionalunit','ResearchDevelopment') NOT NULL,
+  `entry_type` enum('Income','Expenses') NOT NULL,
+  `category` varchar(60) NOT NULL,
+  `generated_by` varchar(120) DEFAULT NULL,
+  `revenue_type` varchar(50) DEFAULT NULL,
+  `patient_name` varchar(150) DEFAULT NULL,
+  `patient_place` varchar(150) DEFAULT NULL,
+  `client_name` varchar(150) DEFAULT NULL,
+  `gst_number` varchar(20) DEFAULT NULL,
+  `amount` decimal(14,2) NOT NULL,
+  `base_amount` decimal(14,2) DEFAULT NULL,
+  `gst_tax_percent` decimal(5,2) DEFAULT NULL,
+  `gst_tax_amount` decimal(14,2) DEFAULT '0.00',
+  `remarks` text,
+  `entry_date` date NOT NULL,
+  `created_by_id` int NOT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `invoice_filename` varchar(255) DEFAULT NULL,
+  `invoice_original_name` varchar(255) DEFAULT NULL,
+  `invoice_mimetype` varchar(100) DEFAULT NULL,
+  `tax_invoice_number` varchar(50) DEFAULT NULL,
+  `sub_category` varchar(60) DEFAULT NULL,
+  `exec_department` varchar(50) DEFAULT NULL,
+  `employee_name` varchar(150) DEFAULT NULL,
+  `salary_amount` decimal(14,2) DEFAULT NULL,
+  `allowance_amount` decimal(14,2) DEFAULT NULL,
+  `extra_data` json DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `created_by_id` (`created_by_id`),
+  CONSTRAINT `finance_entries_ibfk_1` FOREIGN KEY (`created_by_id`) REFERENCES `users` (`id`)
+);
+
+
+CREATE TABLE `caredx_lab_entries` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `entry_date` date NOT NULL,
+  `patient_name` varchar(150) NOT NULL,
+  `test_name` varchar(255) NOT NULL,
+  `total_amount_paid` decimal(14,2) NOT NULL DEFAULT '0.00',
+  `employee_name` varchar(150) DEFAULT NULL,
+  `cash` decimal(14,2) NOT NULL DEFAULT '0.00',
+  `online` decimal(14,2) NOT NULL DEFAULT '0.00',
+  `paid_to_other_labs` decimal(14,2) NOT NULL DEFAULT '0.00',
+  `rmp` decimal(14,2) NOT NULL DEFAULT '0.00',
+  `salaries_expense` decimal(14,2) NOT NULL DEFAULT '0.00',
+  `expense_details` text,
+  `referral_by` varchar(150) DEFAULT NULL,
+  `referral_amount` decimal(14,2) NOT NULL DEFAULT '0.00',
+  `sales` decimal(14,2) NOT NULL DEFAULT '0.00',
+  `created_by_id` int DEFAULT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `created_by_id` (`created_by_id`),
+  CONSTRAINT `caredx_lab_entries_ibfk_1` FOREIGN KEY (`created_by_id`) REFERENCES `users` (`id`)
+);
+
+CREATE TABLE `caredx_expenses` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `expense_date` date NOT NULL,
+  `category` varchar(150) NOT NULL,
+  `amount` decimal(14,2) NOT NULL,
+  `remarks` text,
+  `created_by_id` int DEFAULT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `created_by_id` (`created_by_id`),
+  CONSTRAINT `caredx_expenses_ibfk_1` FOREIGN KEY (`created_by_id`) REFERENCES `users` (`id`)
+);
+
