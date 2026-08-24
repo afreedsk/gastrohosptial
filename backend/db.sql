@@ -1877,17 +1877,27 @@ CREATE TABLE IF NOT EXISTS ip_procedures (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
--- Add some lab items
-INSERT INTO ip_lab (ip_registration_id, item_name, quantity, rate, amount) VALUES
-(1, 'Complete Blood Count', 1, 500, 500),
-(1, 'Lipid Profile', 1, 800, 800);
+CREATE TABLE IF NOT EXISTS discharge_summaries (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ip_registration_id INT NOT NULL UNIQUE,
+    surgery_date DATE,
+    doctor_id INT,
+    department VARCHAR(120),
+    diagnosis TEXT,
+    `procedure` TEXT,
+    complaint TEXT,
+    past_history TEXT,
+    drug_history TEXT,
+    surgical_history TEXT,
+    examination JSON,
+    investigations TEXT,
+    course_hospitalization TEXT,
+    condition_discharge TEXT,
+    discharge_advise TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (ip_registration_id) REFERENCES ip_registrations(id) ON DELETE CASCADE,
+    FOREIGN KEY (doctor_id) REFERENCES doctors(id)
+);
 
--- Add some services
-INSERT INTO ip_services (ip_registration_id, service_name, quantity, rate, amount) VALUES
-(1, 'Nursing Care', 3, 300, 900),
-(1, 'Physiotherapy', 2, 400, 800);
-
--- Add some procedures
-INSERT INTO ip_procedures (ip_registration_id, procedure_name, quantity, rate, amount) VALUES
-(1, 'Appendectomy', 1, 15000, 15000),
-(1, 'Wound Dressing', 2, 500, 1000);
+ALTER TABLE discharge_summaries MODIFY discharge_advise JSON;
