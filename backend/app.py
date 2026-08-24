@@ -30,6 +30,10 @@ from routes.pharmacy_sales import pharmacy_sales_bp
 from routes.patient_indents import patient_indents_bp
 from routes.ot_indents import ot_indents_bp
 from routes.advance_payments import advance_payments_bp
+from routes.ip_lab import ip_lab_bp
+from routes.ip_services import ip_services_bp
+from routes.ip_procedures import ip_procedures_bp
+from routes.discharge_summary import discharge_summary_bp
 
 DEBUG = os.getenv("FLASK_ENV", "development") == "development"
 
@@ -66,6 +70,10 @@ def create_app():
     app.register_blueprint(patient_indents_bp, url_prefix="/api/patient-indents")
     app.register_blueprint(ot_indents_bp, url_prefix="/api/ot-indents")
     app.register_blueprint(advance_payments_bp, url_prefix="/api/advance-payments")
+    app.register_blueprint(ip_lab_bp, url_prefix="/api/ip-lab")
+    app.register_blueprint(ip_services_bp, url_prefix="/api/ip-services")
+    app.register_blueprint(ip_procedures_bp, url_prefix="/api/ip-procedures")
+    app.register_blueprint(discharge_summary_bp, url_prefix="/api/discharge-summary")
     @app.route("/api/health")
     def health():
         return jsonify({"status": "ok"})

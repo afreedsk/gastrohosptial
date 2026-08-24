@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Receipt } from 'lucide-react'
+import { Receipt, FlaskConical, Stethoscope, Scissors } from 'lucide-react'
 import api from '../../api/axios'
 import {
   PageHeader,
@@ -8,6 +8,9 @@ import {
 } from '../../components/PageHeader'
 import RoomChargeModal from '../../components/registration/RoomChargeModal'
 import CatalogPickerModal from '../../components/registration/CatalogPickerModal'
+import IPLab from '../../components/billing/IPLab'
+import IPServices from '../../components/billing/IPServices'
+import IPProcedures from '../../components/billing/IPProcedures'
 
 const CHARGE_ROWS = [
   { key: 'admission_charge', label: 'Admission Charges' },
@@ -37,10 +40,11 @@ export default function IPBilling() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const [activePicker, setActivePicker] = useState(null) // 'room' | 'lab' | 'procedure' | 'service' | null
+  const [activePicker, setActivePicker] = useState(null)
   const [roomSelection, setRoomSelection] = useState(null)
-  // per-key list of selected catalog items, purely for display chips
   const [pickedItems, setPickedItems] = useState({ lab_charge: [], procedure_charge: [], service_charge: [] })
+
+  const [activeTab, setActiveTab] = useState('bills')
 
   const loadBills = () => {
     api.get('/ip-billing').then((r) => setBills(r.data))
@@ -68,23 +72,61 @@ export default function IPBilling() {
       room_charge: result.room_charge,
       doctor_visit_charge: result.doctor_visit_charge,
       nursing_charge: result.nursing_charge,
-      // no dedicated assistant-doctor column on ip_bills — added into misc_charge
       misc_charge: Number(current.misc_charge || 0) + result.assistant_doctor_charge,
     }))
     setRoomSelection({ roomType: result.roomType, days: result.days })
     setActivePicker(null)
   }
 
-  const applyCatalogSelection = (chargeKey) => (selectedList, total) => {
-    setCharges((current) => ({
-      ...current,
-      [chargeKey]: Number(current[chargeKey] || 0) + total,
+  // ======================================================================
+  // UPDATED: Now saves items to the backend via POST, not just local state.
+  // ======================================================================
+  const applyCatalogSelection = (chargeKey) => async (selectedList, total) => {
+    if (!admissionId) {
+      setError('Please select an admitted patient first.')
+      setActivePicker(null)
+      return
+    }
+
+    // Map selected items to the format expected by the backend
+    // The modal should provide fields: investigation_name / service_name / procedure_name, rate, quantity
+    const items = selectedList.map(item => ({
+      // For lab: item_name, services: service_name, procedures: procedure_name
+      item_name: item.investigation_name || item.service_name || item.procedure_name || item.name,
+      quantity: item.quantity || 1,
+      rate: item.rate || 0,
+      amount: item.amount || (item.rate * (item.quantity || 1)) || 0,
     }))
-    setPickedItems((current) => ({
-      ...current,
-      [chargeKey]: [...current[chargeKey], ...selectedList],
-    }))
-    setActivePicker(null)
+
+    let endpoint = ''
+    if (chargeKey === 'lab_charge') endpoint = '/ip-lab'
+    else if (chargeKey === 'service_charge') endpoint = '/ip-services'
+    else if (chargeKey === 'procedure_charge') endpoint = '/ip-procedures'
+    else return
+
+    try {
+      await api.post(endpoint, {
+        ip_registration_id: admissionId,
+        items: items,
+      })
+
+      // Update local charges (add the total to the specific charge field)
+      setCharges((current) => ({
+        ...current,
+        [chargeKey]: Number(current[chargeKey] || 0) + total,
+      }))
+
+      // Keep track of picked items for the summary chips
+      setPickedItems((current) => ({
+        ...current,
+        [chargeKey]: [...current[chargeKey], ...selectedList],
+      }))
+
+      setActivePicker(null)
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to save items')
+      setActivePicker(null)
+    }
   }
 
   const submit = async (e) => {
@@ -117,35 +159,34 @@ export default function IPBilling() {
     }
   }
 
-const chipSummary = (key) => {
-  const items = pickedItems[key]
-
-  if (!items?.length) return null
-
-  const names = items
-    .map(
-      (i) =>
-        i.investigation_name ||
-        i.procedure_name ||
-        i.service_name
+  const chipSummary = (key) => {
+    const items = pickedItems[key]
+    if (!items?.length) return null
+    const names = items
+      .map(
+        (i) =>
+          i.investigation_name ||
+          i.procedure_name ||
+          i.service_name ||
+          i.name
+      )
+      .filter(Boolean)
+      .join(', ')
+    return (
+      <span
+        className="block text-xs text-teal-600 truncate max-w-[220px]"
+        title={names}
+      >
+        {names}
+      </span>
     )
-    .filter(Boolean)
-    .join(', ')
-
-  return (
-    <span
-      className="block text-xs text-teal-600 truncate max-w-[220px]"
-      title={names}
-    >
-      {names}
-    </span>
-  )
-}
+  }
 
   return (
     <div>
       <PageHeader title="Inpatient Billing" subtitle="Create and manage IP bills" />
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+        {/* Left column – New Bill Form */}
         <form onSubmit={submit} className="xl:col-span-1">
           <Section title="New IP Bill">
             {error && <p className="text-sm text-danger-500 mb-3">{error}</p>}
@@ -238,36 +279,88 @@ const chipSummary = (key) => {
           </Section>
         </form>
 
+        {/* Right column – Tabs for Bills / Lab / Services / Procedures */}
         <div className="xl:col-span-2">
-          <Section title="IP Bills">
-            <div className="overflow-x-auto">
-              <table className="table-base">
-                <thead>
-                  <tr>
-                    <th>Bill No</th><th>Admission</th><th>Patient</th><th>Grand Total</th>
-                    <th>Paid</th><th>Due</th><th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bills.map((b) => (
-                    <tr key={b.id}>
-                      <td>{b.bill_no}</td>
-                      <td>{b.admission_no}</td>
-                      <td>{b.patient_name}</td>
-                      <td>₹{Number(b.grand_total || 0).toFixed(2)}</td>
-                      <td>₹{Number(b.paid_amount || 0).toFixed(2)}</td>
-                      <td>₹{Number(b.due_amount || 0).toFixed(2)}</td>
-                      <td><StatusBadge status={b.status} /></td>
-                    </tr>
-                  ))}
-                  {!bills.length && <tr><td colSpan={7} className="text-center text-ink/40 py-8">No IP bills yet</td></tr>}
-                </tbody>
-              </table>
+          <Section title="IP Records">
+            <div className="flex border-b border-border mb-4">
+              <button
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  activeTab === 'bills'
+                    ? 'text-teal-700 border-b-2 border-teal-700'
+                    : 'text-ink/50 hover:text-ink'
+                }`}
+                onClick={() => setActiveTab('bills')}
+              >
+                <Receipt size={14} className="inline mr-1" /> IP Bills
+              </button>
+              <button
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  activeTab === 'lab'
+                    ? 'text-teal-700 border-b-2 border-teal-700'
+                    : 'text-ink/50 hover:text-ink'
+                }`}
+                onClick={() => setActiveTab('lab')}
+              >
+                <FlaskConical size={14} className="inline mr-1" /> Lab
+              </button>
+              <button
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  activeTab === 'services'
+                    ? 'text-teal-700 border-b-2 border-teal-700'
+                    : 'text-ink/50 hover:text-ink'
+                }`}
+                onClick={() => setActiveTab('services')}
+              >
+                <Stethoscope size={14} className="inline mr-1" /> Services
+              </button>
+              <button
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  activeTab === 'procedures'
+                    ? 'text-teal-700 border-b-2 border-teal-700'
+                    : 'text-ink/50 hover:text-ink'
+                }`}
+                onClick={() => setActiveTab('procedures')}
+              >
+                <Scissors size={14} className="inline mr-1" /> Procedures
+              </button>
+            </div>
+
+            <div>
+              {activeTab === 'bills' && (
+                <div className="overflow-x-auto">
+                  <table className="table-base">
+                    <thead>
+                      <tr>
+                        <th>Bill No</th><th>Admission</th><th>Patient</th><th>Grand Total</th>
+                        <th>Paid</th><th>Due</th><th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bills.map((b) => (
+                        <tr key={b.id}>
+                          <td>{b.bill_no}</td>
+                          <td>{b.admission_no}</td>
+                          <td>{b.patient_name}</td>
+                          <td>₹{Number(b.grand_total || 0).toFixed(2)}</td>
+                          <td>₹{Number(b.paid_amount || 0).toFixed(2)}</td>
+                          <td>₹{Number(b.due_amount || 0).toFixed(2)}</td>
+                          <td><StatusBadge status={b.status} /></td>
+                        </tr>
+                      ))}
+                      {!bills.length && <tr><td colSpan={7} className="text-center text-ink/40 py-8">No IP bills yet</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {activeTab === 'lab' && <IPLab />}
+              {activeTab === 'services' && <IPServices />}
+              {activeTab === 'procedures' && <IPProcedures />}
             </div>
           </Section>
         </div>
       </div>
 
+      {/* Modals */}
       {activePicker === 'room' && (
         <RoomChargeModal
           initial={roomSelection}
@@ -275,7 +368,6 @@ const chipSummary = (key) => {
           onClose={() => setActivePicker(null)}
         />
       )}
-
       {activePicker === 'lab' && (
         <CatalogPickerModal
           title="Lab Investigations"
@@ -286,18 +378,16 @@ const chipSummary = (key) => {
           onClose={() => setActivePicker(null)}
         />
       )}
-
-{activePicker === 'procedure' && (
-  <CatalogPickerModal
-    title="Procedures"
-    endpoint="/catalog/procedures"
-    groupField="procedure_type"
-    nameField="procedure_name"
-    onApply={applyCatalogSelection('procedure_charge')}
-    onClose={() => setActivePicker(null)}
-  />
-)}
-
+      {activePicker === 'procedure' && (
+        <CatalogPickerModal
+          title="Procedures"
+          endpoint="/catalog/procedures"
+          groupField="procedure_type"
+          nameField="procedure_name"
+          onApply={applyCatalogSelection('procedure_charge')}
+          onClose={() => setActivePicker(null)}
+        />
+      )}
       {activePicker === 'service' && (
         <CatalogPickerModal
           title="Services"

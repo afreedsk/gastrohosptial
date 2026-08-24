@@ -237,3 +237,22 @@ def get_last_ip_registration(patient_id):
         ORDER BY r.created_at DESC LIMIT 1
     """, (patient_id,))
     return jsonify(row) if row else jsonify(None), 200
+
+
+@ip_reg_bp.route("/<int:reg_id>", methods=["GET"])
+@jwt_required()
+def get_ip_registration(reg_id):
+    row = query("""
+        SELECT r.*, p.patient_uid AS mr_number, p.reg_no AS patient_reg_no,
+               CONCAT(r.first_name, ' ', IFNULL(r.last_name, '')) AS name,
+               d.name AS doctor_name,
+               dept.name AS department
+        FROM ip_registrations r
+        JOIN patients p ON p.id = r.patient_id
+        LEFT JOIN doctors d ON d.id = r.doctor_id
+        LEFT JOIN departments dept ON dept.id = d.department_id
+        WHERE r.id=%s
+    """, (reg_id,))
+    if not row:
+        return jsonify({"error": "IP registration not found"}), 404
+    return jsonify(row), 200

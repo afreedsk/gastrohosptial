@@ -1838,3 +1838,56 @@ INSERT INTO procedure_catalog (procedure_type, procedure_name, description, rate
 ('OT CHARGES', 'DISPOSABLE ITEMS (TROCAR AND HAND INSTRUMENTS)', NULL, 0.00),
 ('PTCA PROCEDURE CHARGES', 'PTCA', NULL, 180000.00),
 ('THORACOSCOPIC CHARGES', 'THORACOSCOPIC CHARGES', NULL, 15000.00);
+
+
+-- IP Lab transactions
+CREATE TABLE IF NOT EXISTS ip_lab (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ip_registration_id INT NOT NULL,
+    item_name VARCHAR(255) NOT NULL,
+    quantity DECIMAL(10,2) DEFAULT 1,
+    rate DECIMAL(10,2) DEFAULT 0,
+    amount DECIMAL(10,2) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ip_registration_id) REFERENCES ip_registrations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- IP Services transactions
+CREATE TABLE IF NOT EXISTS ip_services (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ip_registration_id INT NOT NULL,
+    service_name VARCHAR(255) NOT NULL,
+    quantity DECIMAL(10,2) DEFAULT 1,
+    rate DECIMAL(10,2) DEFAULT 0,
+    amount DECIMAL(10,2) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ip_registration_id) REFERENCES ip_registrations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- IP Procedures transactions
+CREATE TABLE IF NOT EXISTS ip_procedures (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ip_registration_id INT NOT NULL,
+    procedure_name VARCHAR(255) NOT NULL,
+    quantity DECIMAL(10,2) DEFAULT 1,
+    rate DECIMAL(10,2) DEFAULT 0,
+    amount DECIMAL(10,2) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ip_registration_id) REFERENCES ip_registrations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+-- Add some lab items
+INSERT INTO ip_lab (ip_registration_id, item_name, quantity, rate, amount) VALUES
+(1, 'Complete Blood Count', 1, 500, 500),
+(1, 'Lipid Profile', 1, 800, 800);
+
+-- Add some services
+INSERT INTO ip_services (ip_registration_id, service_name, quantity, rate, amount) VALUES
+(1, 'Nursing Care', 3, 300, 900),
+(1, 'Physiotherapy', 2, 400, 800);
+
+-- Add some procedures
+INSERT INTO ip_procedures (ip_registration_id, procedure_name, quantity, rate, amount) VALUES
+(1, 'Appendectomy', 1, 15000, 15000),
+(1, 'Wound Dressing', 2, 500, 1000);

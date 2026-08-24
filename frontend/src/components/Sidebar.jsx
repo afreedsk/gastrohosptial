@@ -22,7 +22,7 @@ const NAV_TREE = [
           { label: 'IP Advance', to: '/executive/ip-advance' },
           { label: 'IP Lab', to: '/executive/ip-lab' },
           { label: 'IP Services', to: '/executive/ip-services' },
-          { label: 'IP Surgeries', to: '/executive/ip-surgeries' },
+          // { label: 'IP Surgeries', to: '/executive/ip-surgeries' },
           { label: 'IP Procedures', to: '/executive/ip-procedures' },
         ],
       },
@@ -48,6 +48,7 @@ const NAV_TREE = [
       // FIXED: was '/executive/room-transfer' — no matching route existed.
       // The real page is registered at '/executive/room-transfer-approval'.
       { label: 'Room Transfer', to: '/executive/room-transfer-approval' },
+      { label: 'Discharge Summary', to: '/executive/discharge-summary' },
     ],
   },
   {
