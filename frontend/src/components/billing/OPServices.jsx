@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
-import { Search, Plus, X } from 'lucide-react'
+    import { useEffect, useState } from 'react'
+import { Search, Plus } from 'lucide-react'
 import api from '../../api/axios'
 import CatalogPickerModal from '../registration/CatalogPickerModal'
 
-export default function IPServices() {
+export default function OPServices() {
   const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [startDate, setStartDate] = useState('')
@@ -36,7 +36,7 @@ export default function IPServices() {
       params.append('patient_id', patientId)
       if (startDate) params.append('start_date', startDate)
       if (endDate) params.append('end_date', endDate)
-      const { data } = await api.get(`/ip-services?${params.toString()}`)
+      const { data } = await api.get(`/op-services?${params.toString()}`)
       setData(data)
     } catch (err) {
       console.error(err)
@@ -69,14 +69,14 @@ export default function IPServices() {
       return
     }
     try {
-      const { data: admissions } = await api.get('/ip-registrations', {
-        params: { patient_id: selectedPatient.id, status: 'Admitted' }
+      const { data: registrations } = await api.get('/op-registrations', {
+        params: { patient_id: selectedPatient.id, status: 'Active' }
       })
-      if (!admissions || admissions.length === 0) {
-        setError('Patient has no active IP admission')
+      if (!registrations || registrations.length === 0) {
+        setError('Patient has no active OP registration')
         return
       }
-      const admissionId = admissions[0].id
+      const registrationId = registrations[0].id
 
       const items = selectedList.map(item => ({
         service_name: item.service_name || item.name,
@@ -85,8 +85,8 @@ export default function IPServices() {
         amount: item.amount || (item.rate * (item.quantity || 1)) || 0,
       }))
 
-      await api.post('/ip-services', {
-        ip_registration_id: admissionId,
+      await api.post('/op-services', {
+        op_registration_id: registrationId,
         items: items,
       })
 
@@ -99,9 +99,7 @@ export default function IPServices() {
   }
 
   useEffect(() => {
-    if (selectedPatient) {
-      fetchServiceRecords(selectedPatient.id)
-    }
+    if (selectedPatient) fetchServiceRecords(selectedPatient.id)
   }, [selectedPatient])
 
   return (
@@ -181,7 +179,7 @@ export default function IPServices() {
           <table className="w-full text-sm">
             <thead className="bg-ink/5 border-b border-border">
               <tr>
-                <th className="px-3 py-2 text-left">IP Reg No</th>
+                <th className="px-3 py-2 text-left">OPD Reg No</th>
                 <th className="px-3 py-2 text-left">Service</th>
                 <th className="px-3 py-2 text-right">Qty</th>
                 <th className="px-3 py-2 text-right">Rate</th>
@@ -192,7 +190,7 @@ export default function IPServices() {
             <tbody>
               {data.map((row) => (
                 <tr key={row.id} className="border-b border-border hover:bg-ink/5">
-                  <td className="px-3 py-2">{row.ip_reg_no}</td>
+                  <td className="px-3 py-2">{row.opd_reg_no}</td>
                   <td className="px-3 py-2">{row.service_name}</td>
                   <td className="px-3 py-2 text-right">{row.quantity}</td>
                   <td className="px-3 py-2 text-right">{row.rate}</td>
@@ -212,7 +210,7 @@ export default function IPServices() {
       {showPicker && (
         <CatalogPickerModal
           title="Service Items"
-          endpoint="/ip-services/catalog"
+          endpoint="/op-services/catalog"
           groupField="service_type"
           nameField="name"
           onApply={handleAddServices}

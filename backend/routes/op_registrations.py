@@ -19,20 +19,16 @@ def safe_date(v):
     """Convert any input to YYYY-MM-DD or None."""
     if not v:
         return None
-    # If already a string in YYYY-MM-DD, return it
     if isinstance(v, str) and len(v) == 10 and v[4] == '-' and v[7] == '-':
         return v
     try:
-        # Try to parse as date
         from datetime import datetime
-        # Try common formats
         for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%a, %d %b %Y %H:%M:%S %Z", "%a, %d %b %Y"):
             try:
                 d = datetime.strptime(v, fmt)
                 return d.date().isoformat()
             except ValueError:
                 continue
-        # If still fails, try with dateutil parser if available
         try:
             from dateutil import parser
             d = parser.parse(v)
@@ -47,7 +43,6 @@ def safe_date(v):
 def calc_age(dob_str):
     if not dob_str:
         return None
-    # Ensure dob_str is YYYY-MM-DD
     dob_str = safe_date(dob_str)
     if not dob_str:
         return None
@@ -79,13 +74,12 @@ def create_op_registration():
     full_name = f"{d.get('title', '')} {d.get('first_name')} {d.get('last_name', '')}".strip()
 
     dob = blank_to_none(d.get("dob"))
-    dob = safe_date(dob)  # ensure valid format
+    dob = safe_date(dob)
     age = calc_age(dob)
     mandal = blank_to_none(d.get("mandal"))
     state = blank_to_none(d.get("state"))
     pincode = blank_to_none(d.get("pincode"))
 
-    # find-or-create patient
     existing = query("SELECT * FROM patients WHERE phone=%s ORDER BY id DESC LIMIT 1", (d["mobile"],))
     if existing:
         patient_id = existing["id"]
@@ -112,7 +106,6 @@ def create_op_registration():
     opd_reg_no = next_code("OPD", "op_registrations", "opd_reg_no")
     token_no = next_token_for_today()
 
-    # Sanitize date fields
     appointment_date = safe_date(d.get("appointment_date"))
 
     rid = query("""
@@ -153,23 +146,40 @@ def create_op_registration():
     return jsonify(row), 201
 
 
+# =============================================================================
+# UPDATED list endpoint with patient_id filter
+# =============================================================================
 @op_reg_bp.route("", methods=["GET"])
 @jwt_required()
 def list_op_registrations():
     search = request.args.get("search", "")
+    patient_id = request.args.get("patient_id")          # NEW: filter by patient ID
     like = f"%{search}%"
-    rows = query("""
+
+    sql = """
         SELECT r.id, p.patient_uid AS mr_number, p.reg_no AS patient_reg_no, r.opd_reg_no,
                r.token_no, CONCAT(r.first_name,' ',IFNULL(r.last_name,'')) AS name,
                r.mobile, r.gender, TIMESTAMPDIFF(YEAR, r.dob, CURDATE()) AS age,
                doc.name AS doctor_name, r.referral_type, r.appointment_time,
-               r.consultation_fee, r.booking_type, r.status, r.created_at
+               r.consultation_fee, r.booking_type, r.status, r.created_at,
+               p.id AS patient_id
         FROM op_registrations r
         JOIN patients p ON p.id = r.patient_id
         LEFT JOIN doctors doc ON doc.id = r.doctor_id
-        WHERE r.first_name LIKE %s OR r.mobile LIKE %s OR p.patient_uid LIKE %s OR r.opd_reg_no LIKE %s
-        ORDER BY r.id DESC
-    """, (like, like, like, like), many=True)
+        WHERE 1=1
+    """
+    params = []
+
+    if patient_id:
+        sql += " AND p.id = %s"
+        params.append(patient_id)
+
+    if search:
+        sql += " AND (r.first_name LIKE %s OR r.mobile LIKE %s OR p.patient_uid LIKE %s OR r.opd_reg_no LIKE %s)"
+        params.extend([like, like, like, like])
+
+    sql += " ORDER BY r.id DESC"
+    rows = query(sql, tuple(params), many=True)
     return jsonify(rows)
 
 

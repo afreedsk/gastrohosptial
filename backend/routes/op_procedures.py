@@ -2,22 +2,21 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from db import query
 
-ip_procedures_bp = Blueprint("ip_procedures", __name__)
+op_procedures_bp = Blueprint("op_procedures", __name__)
 
-# GET – list procedure items with search, date, and patient filters
-@ip_procedures_bp.route("", methods=["GET"])
+@op_procedures_bp.route("", methods=["GET"])
 @jwt_required()
-def list_ip_procedures():
+def list_op_procedures():
     search = request.args.get("search", "")
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
     patient_id = request.args.get("patient_id")
 
     sql = """
-        SELECT pr.id, pr.ip_registration_id, pr.procedure_name, pr.quantity, pr.rate, pr.amount,
-               pr.created_at, p.name AS patient_name, r.ip_reg_no
-        FROM ip_procedures pr
-        JOIN ip_registrations r ON r.id = pr.ip_registration_id
+        SELECT pr.id, pr.op_registration_id, pr.procedure_name, pr.quantity, pr.rate, pr.amount,
+               pr.created_at, p.name AS patient_name, r.opd_reg_no
+        FROM op_procedures pr
+        JOIN op_registrations r ON r.id = pr.op_registration_id
         JOIN patients p ON p.id = r.patient_id
         WHERE 1=1
     """
@@ -28,7 +27,7 @@ def list_ip_procedures():
         params.append(patient_id)
 
     if search:
-        sql += " AND (pr.procedure_name LIKE %s OR p.name LIKE %s OR r.ip_reg_no LIKE %s OR p.phone LIKE %s OR p.email LIKE %s)"
+        sql += " AND (pr.procedure_name LIKE %s OR p.name LIKE %s OR r.opd_reg_no LIKE %s OR p.phone LIKE %s OR p.email LIKE %s)"
         like = f"%{search}%"
         params.extend([like, like, like, like, like])
 
@@ -43,20 +42,18 @@ def list_ip_procedures():
     rows = query(sql, tuple(params), many=True)
     return jsonify(rows)
 
-
-# POST – save selected procedure items for an IP admission
-@ip_procedures_bp.route("", methods=["POST"])
+@op_procedures_bp.route("", methods=["POST"])
 @jwt_required()
-def create_ip_procedure():
+def create_op_procedure():
     data = request.get_json()
-    ip_registration_id = data.get("ip_registration_id")
+    op_registration_id = data.get("op_registration_id")
     items = data.get("items")
-    if not ip_registration_id or not items:
-        return jsonify({"error": "ip_registration_id and items are required"}), 400
+    if not op_registration_id or not items:
+        return jsonify({"error": "op_registration_id and items are required"}), 400
 
-    admission = query("SELECT id FROM ip_registrations WHERE id=%s", (ip_registration_id,))
-    if not admission:
-        return jsonify({"error": "Invalid admission"}), 404
+    registration = query("SELECT id FROM op_registrations WHERE id=%s", (op_registration_id,))
+    if not registration:
+        return jsonify({"error": "Invalid OP registration"}), 404
 
     for item in items:
         procedure_name = item.get("procedure_name")
@@ -66,16 +63,14 @@ def create_ip_procedure():
         if not procedure_name:
             continue
         query("""
-            INSERT INTO ip_procedures (ip_registration_id, procedure_name, quantity, rate, amount)
+            INSERT INTO op_procedures (op_registration_id, procedure_name, quantity, rate, amount)
             VALUES (%s, %s, %s, %s, %s)
-        """, (ip_registration_id, procedure_name, quantity, rate, amount),
+        """, (op_registration_id, procedure_name, quantity, rate, amount),
         fetch=False, commit=True)
 
     return jsonify({"success": True}), 201
 
-
-# GET – procedure catalog items (for the picker modal)
-@ip_procedures_bp.route("/catalog", methods=["GET"])
+@op_procedures_bp.route("/catalog", methods=["GET"])
 @jwt_required()
 def get_procedure_catalog():
     search = request.args.get("search", "")
@@ -97,9 +92,7 @@ def get_procedure_catalog():
     rows = query(sql, tuple(params), many=True)
     return jsonify(rows)
 
-
-# GET – list distinct procedure types for catalog filter
-@ip_procedures_bp.route("/catalog/types", methods=["GET"])
+@op_procedures_bp.route("/catalog/types", methods=["GET"])
 @jwt_required()
 def get_procedure_types():
     rows = query("SELECT DISTINCT procedure_type FROM procedure_catalog WHERE is_active = 1 ORDER BY procedure_type", many=True)

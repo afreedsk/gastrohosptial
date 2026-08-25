@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Search, Plus, X } from 'lucide-react'
+import { Search, Plus } from 'lucide-react'
 import api from '../../api/axios'
 import CatalogPickerModal from '../registration/CatalogPickerModal'
 
-export default function IPServices() {
+export default function OPProcedures() {
   const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [startDate, setStartDate] = useState('')
@@ -28,7 +28,7 @@ export default function IPServices() {
     }
   }
 
-  const fetchServiceRecords = async (patientId) => {
+  const fetchProcedureRecords = async (patientId) => {
     if (!patientId) return
     setLoading(true)
     try {
@@ -36,11 +36,11 @@ export default function IPServices() {
       params.append('patient_id', patientId)
       if (startDate) params.append('start_date', startDate)
       if (endDate) params.append('end_date', endDate)
-      const { data } = await api.get(`/ip-services?${params.toString()}`)
+      const { data } = await api.get(`/op-procedures?${params.toString()}`)
       setData(data)
     } catch (err) {
       console.error(err)
-      setError('Failed to load service records')
+      setError('Failed to load procedure records')
     } finally {
       setLoading(false)
     }
@@ -50,58 +50,56 @@ export default function IPServices() {
     setSelectedPatient(patient)
     setSearchQuery(`${patient.name} — ${patient.phone}`)
     setPatients([])
-    fetchServiceRecords(patient.id)
+    fetchProcedureRecords(patient.id)
   }
 
   const applyFilters = () => {
-    if (selectedPatient) fetchServiceRecords(selectedPatient.id)
+    if (selectedPatient) fetchProcedureRecords(selectedPatient.id)
   }
 
   const resetFilters = () => {
     setStartDate('')
     setEndDate('')
-    if (selectedPatient) fetchServiceRecords(selectedPatient.id)
+    if (selectedPatient) fetchProcedureRecords(selectedPatient.id)
   }
 
-  const handleAddServices = async (selectedList, total) => {
+  const handleAddProcedures = async (selectedList, total) => {
     if (!selectedPatient) {
       setError('Please select a patient first')
       return
     }
     try {
-      const { data: admissions } = await api.get('/ip-registrations', {
-        params: { patient_id: selectedPatient.id, status: 'Admitted' }
+      const { data: registrations } = await api.get('/op-registrations', {
+        params: { patient_id: selectedPatient.id, status: 'Active' }
       })
-      if (!admissions || admissions.length === 0) {
-        setError('Patient has no active IP admission')
+      if (!registrations || registrations.length === 0) {
+        setError('Patient has no active OP registration')
         return
       }
-      const admissionId = admissions[0].id
+      const registrationId = registrations[0].id
 
       const items = selectedList.map(item => ({
-        service_name: item.service_name || item.name,
+        procedure_name: item.procedure_name || item.name,
         quantity: item.quantity || 1,
         rate: item.rate || 0,
         amount: item.amount || (item.rate * (item.quantity || 1)) || 0,
       }))
 
-      await api.post('/ip-services', {
-        ip_registration_id: admissionId,
+      await api.post('/op-procedures', {
+        op_registration_id: registrationId,
         items: items,
       })
 
-      setSuccess(`${selectedList.length} service(s) added successfully`)
+      setSuccess(`${selectedList.length} procedure(s) added successfully`)
       setShowPicker(false)
-      fetchServiceRecords(selectedPatient.id)
+      fetchProcedureRecords(selectedPatient.id)
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to add services')
+      setError(err.response?.data?.error || 'Failed to add procedures')
     }
   }
 
   useEffect(() => {
-    if (selectedPatient) {
-      fetchServiceRecords(selectedPatient.id)
-    }
+    if (selectedPatient) fetchProcedureRecords(selectedPatient.id)
   }, [selectedPatient])
 
   return (
@@ -165,7 +163,7 @@ export default function IPServices() {
             <span className="ml-2 text-sm text-ink/50">Phone: {selectedPatient.phone}</span>
           </div>
           <button onClick={() => setShowPicker(true)} className="btn-primary flex items-center gap-2">
-            <Plus size={16} /> Add Services
+            <Plus size={16} /> Add Procedures
           </button>
         </div>
       )}
@@ -173,7 +171,7 @@ export default function IPServices() {
       {loading && <div className="text-center py-4">Loading...</div>}
 
       {!loading && selectedPatient && data.length === 0 && (
-        <div className="text-center py-8 text-ink/50">No service records found for this patient.</div>
+        <div className="text-center py-8 text-ink/50">No procedure records found for this patient.</div>
       )}
 
       {!loading && data.length > 0 && (
@@ -181,8 +179,8 @@ export default function IPServices() {
           <table className="w-full text-sm">
             <thead className="bg-ink/5 border-b border-border">
               <tr>
-                <th className="px-3 py-2 text-left">IP Reg No</th>
-                <th className="px-3 py-2 text-left">Service</th>
+                <th className="px-3 py-2 text-left">OPD Reg No</th>
+                <th className="px-3 py-2 text-left">Procedure</th>
                 <th className="px-3 py-2 text-right">Qty</th>
                 <th className="px-3 py-2 text-right">Rate</th>
                 <th className="px-3 py-2 text-right">Amount</th>
@@ -192,8 +190,8 @@ export default function IPServices() {
             <tbody>
               {data.map((row) => (
                 <tr key={row.id} className="border-b border-border hover:bg-ink/5">
-                  <td className="px-3 py-2">{row.ip_reg_no}</td>
-                  <td className="px-3 py-2">{row.service_name}</td>
+                  <td className="px-3 py-2">{row.opd_reg_no}</td>
+                  <td className="px-3 py-2">{row.procedure_name}</td>
                   <td className="px-3 py-2 text-right">{row.quantity}</td>
                   <td className="px-3 py-2 text-right">{row.rate}</td>
                   <td className="px-3 py-2 text-right font-medium">{row.amount}</td>
@@ -206,16 +204,16 @@ export default function IPServices() {
       )}
 
       {!selectedPatient && (
-        <div className="text-center py-8 text-ink/50">Search for a patient to view their service records.</div>
+        <div className="text-center py-8 text-ink/50">Search for a patient to view their procedure records.</div>
       )}
 
       {showPicker && (
         <CatalogPickerModal
-          title="Service Items"
-          endpoint="/ip-services/catalog"
-          groupField="service_type"
+          title="Procedure Items"
+          endpoint="/op-procedures/catalog"
+          groupField="procedure_type"
           nameField="name"
-          onApply={handleAddServices}
+          onApply={handleAddProcedures}
           onClose={() => setShowPicker(false)}
         />
       )}

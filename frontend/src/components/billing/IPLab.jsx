@@ -1,59 +1,157 @@
 import { useEffect, useState } from 'react'
-import { Search } from 'lucide-react'
+import { Search, Plus, Loader2, X, FlaskConical } from 'lucide-react'
 import api from '../../api/axios'
+import CatalogPickerModal from '../registration/CatalogPickerModal'
 
 export default function IPLab() {
-  const [data, setData] = useState([])
   const [loading, setLoading] = useState(false)
-  const [search, setSearch] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [data, setData] = useState([])
+  const [patients, setPatients] = useState([])
+  const [selectedPatient, setSelectedPatient] = useState(null)
+  const [showPicker, setShowPicker] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
-  const fetchData = async () => {
+  // Fetch patients by search (name, MR, phone, email)
+  const searchPatients = async (q) => {
+    if (!q.trim()) {
+      setPatients([])
+      return
+    }
+    try {
+      const { data } = await api.get('/patients', { params: { search: q, limit: 10 } })
+      setPatients(data)
+    } catch (err) {
+      console.error('Patient search failed:', err)
+    }
+  }
+
+  // Fetch lab records for selected patient
+  const fetchLabRecords = async (patientId) => {
+    if (!patientId) return
     setLoading(true)
     try {
       const params = new URLSearchParams()
-      if (search) params.append('search', search)
+      params.append('patient_id', patientId)
       if (startDate) params.append('start_date', startDate)
       if (endDate) params.append('end_date', endDate)
       const { data } = await api.get(`/ip-lab?${params.toString()}`)
       setData(data)
     } catch (err) {
       console.error(err)
+      setError('Failed to load lab records')
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    fetchData()
-    // eslint-disable-next-line
-  }, [])
-
-  const handleFilter = (e) => {
-    e.preventDefault()
-    fetchData()
+  // Handle patient selection from search dropdown
+  const selectPatient = (patient) => {
+    setSelectedPatient(patient)
+    setSearchQuery(`${patient.name} — ${patient.phone}`)
+    setPatients([])
+    fetchLabRecords(patient.id)
   }
 
-  const resetFilter = () => {
-    setSearch('')
+  // Apply date filters
+  const applyFilters = () => {
+    if (selectedPatient) {
+      fetchLabRecords(selectedPatient.id)
+    }
+  }
+
+  const resetFilters = () => {
     setStartDate('')
     setEndDate('')
-    setTimeout(fetchData, 0)
+    if (selectedPatient) {
+      fetchLabRecords(selectedPatient.id)
+    }
   }
 
+  // Handle adding lab items via modal
+  const handleAddLabItems = async (selectedList, total) => {
+    if (!selectedPatient) {
+      setError('Please select a patient first')
+      return
+    }
+    // Get the active IP admission for this patient
+    try {
+      const { data: admissions } = await api.get('/ip-registrations', { 
+        params: { patient_id: selectedPatient.id, status: 'Admitted' } 
+      })
+      if (!admissions || admissions.length === 0) {
+        setError('Patient has no active IP admission')
+        return
+      }
+      const admissionId = admissions[0].id
+
+      const items = selectedList.map(item => ({
+        item_name: item.investigation_name || item.name,
+        quantity: item.quantity || 1,
+        rate: item.rate || 0,
+        amount: item.amount || (item.rate * (item.quantity || 1)) || 0,
+      }))
+
+      await api.post('/ip-lab', {
+        ip_registration_id: admissionId,
+        items: items,
+      })
+
+      setSuccess(`${selectedList.length} lab item(s) added successfully`)
+      setShowPicker(false)
+      // Refresh the list
+      fetchLabRecords(selectedPatient.id)
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to add lab items')
+    }
+  }
+
+  useEffect(() => {
+    if (selectedPatient) {
+      fetchLabRecords(selectedPatient.id)
+    }
+  }, [selectedPatient])
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Patient search */}
       <div className="flex flex-wrap gap-4 items-end">
-        <div className="flex-1 min-w-[200px]">
-          <label className="label">Search</label>
-          <input
-            className="input"
-            placeholder="By item, patient, IP Reg No..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="flex-1 min-w-[250px] relative">
+          <label className="label">Search Patient</label>
+          <div className="relative">
+            <input
+              className="input w-full"
+              placeholder="Search by name, MR, phone, or email..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value)
+                searchPatients(e.target.value)
+              }}
+            />
+            {patients.length > 0 && (
+              <div className="absolute z-50 mt-1 w-full bg-white border border-border rounded-sm shadow-lg max-h-60 overflow-y-auto">
+                {patients.map(p => (
+                  <button
+                    key={p.id}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => selectPatient(p)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-teal-50 border-b border-border last:border-0"
+                  >
+                    <div className="flex justify-between">
+                      <span className="font-medium">{p.name}</span>
+                      <span className="text-ink/40 text-xs">{p.patient_uid}</span>
+                    </div>
+                    <p className="text-xs text-ink/50">{p.phone} · {p.gender} · Age {p.age ?? '—'}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
+
         <div>
           <label className="label">From</label>
           <input type="date" className="input" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
@@ -62,16 +160,32 @@ export default function IPLab() {
           <label className="label">To</label>
           <input type="date" className="input" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
         </div>
-        <button onClick={handleFilter} className="btn-primary flex items-center gap-2">
-          <Search size={16} /> Filter
+        <button onClick={applyFilters} className="btn-primary flex items-center gap-2">
+          <Search size={16} /> Apply
         </button>
-        <button onClick={resetFilter} className="btn-secondary">Reset</button>
+        <button onClick={resetFilters} className="btn-secondary">Reset</button>
       </div>
+
+      {error && <div className="text-sm text-danger-500 bg-danger-50 border border-danger-200 rounded-sm px-3 py-2">{error}</div>}
+      {success && <div className="text-sm text-teal-700 bg-teal-50 border border-teal-100 rounded-sm px-3 py-2">{success}</div>}
+
+      {selectedPatient && (
+        <div className="flex justify-between items-center">
+          <div>
+            <span className="font-medium">{selectedPatient.name}</span>
+            <span className="ml-2 text-sm text-ink/50">MR: {selectedPatient.patient_uid}</span>
+            <span className="ml-2 text-sm text-ink/50">Phone: {selectedPatient.phone}</span>
+          </div>
+          <button onClick={() => setShowPicker(true)} className="btn-primary flex items-center gap-2">
+            <Plus size={16} /> Add Lab Items
+          </button>
+        </div>
+      )}
 
       {loading && <div className="text-center py-4">Loading...</div>}
 
-      {!loading && data.length === 0 && (
-        <div className="text-center py-8 text-ink/50">No lab records found.</div>
+      {!loading && selectedPatient && data.length === 0 && (
+        <div className="text-center py-8 text-ink/50">No lab records found for this patient.</div>
       )}
 
       {!loading && data.length > 0 && (
@@ -80,7 +194,6 @@ export default function IPLab() {
             <thead className="bg-ink/5 border-b border-border">
               <tr>
                 <th className="px-3 py-2 text-left">IP Reg No</th>
-                <th className="px-3 py-2 text-left">Patient</th>
                 <th className="px-3 py-2 text-left">Item</th>
                 <th className="px-3 py-2 text-right">Qty</th>
                 <th className="px-3 py-2 text-right">Rate</th>
@@ -92,7 +205,6 @@ export default function IPLab() {
               {data.map((row) => (
                 <tr key={row.id} className="border-b border-border hover:bg-ink/5">
                   <td className="px-3 py-2">{row.ip_reg_no}</td>
-                  <td className="px-3 py-2">{row.patient_name}</td>
                   <td className="px-3 py-2">{row.item_name}</td>
                   <td className="px-3 py-2 text-right">{row.quantity}</td>
                   <td className="px-3 py-2 text-right">{row.rate}</td>
@@ -103,6 +215,22 @@ export default function IPLab() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {!selectedPatient && (
+        <div className="text-center py-8 text-ink/50">Search for a patient to view their lab records.</div>
+      )}
+
+      {/* Modal for adding lab items */}
+      {showPicker && (
+        <CatalogPickerModal
+          title="Lab Investigations"
+          endpoint="/ip-lab/catalog"
+          groupField="department"
+          nameField="name"
+          onApply={handleAddLabItems}
+          onClose={() => setShowPicker(false)}
+        />
       )}
     </div>
   )

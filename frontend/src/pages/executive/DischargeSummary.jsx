@@ -56,15 +56,35 @@ function AdmittedPatientList({ onSelect }) {
     <div className="overflow-x-auto">
       <table className="table-base">
         <thead>
-          <tr><th>IP Reg No</th><th>Patient Name</th><th>Room</th><th>Admit Date</th><th>Action</th></tr>
+          <tr>
+            <th>MR Number</th>
+            <th>Patient Reg No</th>
+            <th>Name</th>
+            <th>Consultant</th>
+            <th>Contact</th>
+            <th>Gender / Age</th>
+            <th>Room Type</th>
+            <th>Room No</th>
+            <th>Bed No</th>
+            <th>Admit Date</th>
+            <th>Discharge Date</th>
+            <th>Actions</th>
+          </tr>
         </thead>
         <tbody>
           {patients.map(p => (
             <tr key={p.id}>
-              <td>{p.ip_reg_no}</td>
+              <td>{p.mr_number || '—'}</td>
+              <td>{p.ip_reg_no || '—'}</td>
               <td>{p.name}</td>
-              <td>{p.room_no || '—'}/{p.bed_no || '—'}</td>
+              <td>{p.doctor_name || '—'}</td>
+              <td>{p.mobile || '—'}</td>
+              <td>{p.gender} / {p.age}Y</td>
+              <td>{p.room_type || '—'}</td>
+              <td>{p.room_no || '—'}</td>
+              <td>{p.bed_no || '—'}</td>
               <td>{formatDate(p.admitted_date)}</td>
+              <td>{p.discharge_date ? formatDate(p.discharge_date) : '—'}</td>
               <td>
                 <button onClick={() => onSelect(p.id)} className="text-teal-600 hover:underline flex items-center gap-1">
                   <Eye size={14} /> View / Edit

@@ -152,24 +152,37 @@ def create_ip_registration():
     return jsonify(row), 201
 
 
+# =============================================================================
+# UPDATED list endpoint with patient_id filter
+# =============================================================================
 @ip_reg_bp.route("", methods=["GET"])
 @jwt_required()
 def list_ip_registrations():
     search = request.args.get("search", "")
     status = request.args.get("status")
+    patient_id = request.args.get("patient_id")          # NEW: filter by patient ID
     like = f"%{search}%"
 
     sql = """
         SELECT r.id, p.patient_uid AS mr_number, p.reg_no AS patient_reg_no, r.opd_reg_no,
                r.ip_reg_no, CONCAT(r.first_name,' ',IFNULL(r.last_name,'')) AS name, r.mobile,
                r.gender, r.age, doc.name AS doctor_name, r.referral_type, r.room_type, r.room_no,
-               r.bed_no, r.admitted_date, r.room_transfer_status, r.status, r.created_at
+               r.bed_no, r.admitted_date, r.room_transfer_status, r.status, r.created_at,
+               p.id AS patient_id
         FROM ip_registrations r
         JOIN patients p ON p.id = r.patient_id
         LEFT JOIN doctors doc ON doc.id = r.doctor_id
-        WHERE (r.first_name LIKE %s OR r.mobile LIKE %s OR p.patient_uid LIKE %s OR r.ip_reg_no LIKE %s)
+        WHERE 1=1
     """
-    params = [like, like, like, like]
+    params = []
+
+    if patient_id:
+        sql += " AND p.id = %s"
+        params.append(patient_id)
+
+    if search:
+        sql += " AND (r.first_name LIKE %s OR r.mobile LIKE %s OR p.patient_uid LIKE %s OR r.ip_reg_no LIKE %s)"
+        params.extend([like, like, like, like])
 
     if status:
         sql += " AND r.status = %s"

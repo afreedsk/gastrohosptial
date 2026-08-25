@@ -46,6 +46,9 @@ import OutpatientSales from './pages/pharmacy/OutpatientSales'
 import PatientIndents from './pages/pharmacy/PatientIndents'
 import OTIndents from './pages/pharmacy/OTIndents'
 import DischargeSummary from './pages/executive/DischargeSummary'
+import OPLabPage from './pages/executive/OPLabPage'
+import OPServicesPage from './pages/executive/OPServicesPage'
+import OPProceduresPage from './pages/executive/OPProceduresPage'
 
 function withLayout(el) {
   return <Layout>{el}</Layout>
@@ -188,6 +191,15 @@ export default function App() {
         <Route path="/executive/discharge-summary/:id?" element={
           <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<DischargeSummary />)}</ProtectedRoute>
         } />
+        <Route path="/executive/op-lab" element={
+  <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<OPLabPage />)}</ProtectedRoute>
+} />
+<Route path="/executive/op-services" element={
+  <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<OPServicesPage />)}</ProtectedRoute>
+} />
+<Route path="/executive/op-procedures" element={
+  <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<OPProceduresPage />)}</ProtectedRoute>
+} />
 
         {/* Reports */}
         <Route path="/executive/reports/ip-lab" element={
