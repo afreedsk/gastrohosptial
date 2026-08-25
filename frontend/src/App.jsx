@@ -49,7 +49,9 @@ import DischargeSummary from './pages/executive/DischargeSummary'
 import OPLabPage from './pages/executive/OPLabPage'
 import OPServicesPage from './pages/executive/OPServicesPage'
 import OPProceduresPage from './pages/executive/OPProceduresPage'
-
+import GoodsReceiveNote from './pages/pharmacy/GoodsReceiveNote'
+import StockAdjustments from './pages/pharmacy/StockAdjustments'
+import SupplierMaster from './pages/pharmacy/SupplierMaster'
 function withLayout(el) {
   return <Layout>{el}</Layout>
 }
@@ -78,7 +80,6 @@ const PLACEHOLDERS = [
 const PHARMACY_PLACEHOLDERS = [
   ['Inventory Type', '/pharmacy/masters/inventory-type'],
   ['Item Type', '/pharmacy/masters/item-type'],
-  ['Supplier', '/pharmacy/masters/supplier'],
   ['Manufacturer', '/pharmacy/masters/manufacturer'],
   ['Tax Categories', '/pharmacy/masters/tax-categories'],
   ['Rack Master', '/pharmacy/masters/rack-master'],
@@ -86,8 +87,6 @@ const PHARMACY_PLACEHOLDERS = [
   ['Item Package Master', '/pharmacy/masters/item-package-master'],
   ['Drug Combination', '/pharmacy/masters/drug-combination'],
   ['Purchase Order', '/pharmacy/transaction/purchase-order'],
-  ['Goods Receive Note', '/pharmacy/transaction/goods-receive-note'],
-  ['Stock Adjustments', '/pharmacy/transaction/stock-adjustments'],
   ['Stock Returns', '/pharmacy/transaction/stock-returns'],
   ['Inpatient Sales Returns', '/pharmacy/sales-returns/inpatient'],
   ['Outpatient Sales Returns', '/pharmacy/sales-returns/outpatient'],
@@ -236,6 +235,15 @@ export default function App() {
         <Route path="/pharmacy/sales/ot-indents" element={
           <ProtectedRoute roles={PHARMACY_ROLES}>{withPharmacyLayout(<OTIndents />)}</ProtectedRoute>
         } />
+        <Route path="/pharmacy/transaction/goods-receive-note" element={
+  <ProtectedRoute roles={PHARMACY_ROLES}>{withPharmacyLayout(<GoodsReceiveNote />)}</ProtectedRoute>
+} />
+<Route path="/pharmacy/transaction/stock-adjustments" element={
+  <ProtectedRoute roles={PHARMACY_ROLES}>{withPharmacyLayout(<StockAdjustments />)}</ProtectedRoute>
+} />
+<Route path="/pharmacy/masters/supplier" element={
+  <ProtectedRoute roles={PHARMACY_ROLES}>{withPharmacyLayout(<SupplierMaster />)}</ProtectedRoute>
+} />
 
         {/* Placeholders */}
         {PLACEHOLDERS.map(([label, path]) => (
