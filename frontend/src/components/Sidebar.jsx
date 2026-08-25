@@ -22,7 +22,6 @@ const NAV_TREE = [
           { label: 'IP Advance', to: '/executive/ip-advance' },
           { label: 'IP Lab', to: '/executive/ip-lab' },
           { label: 'IP Services', to: '/executive/ip-services' },
-          // { label: 'IP Surgeries', to: '/executive/ip-surgeries' },
           { label: 'IP Procedures', to: '/executive/ip-procedures' },
         ],
       },
@@ -41,12 +40,7 @@ const NAV_TREE = [
     type: 'group', key: 'ip-admission', label: 'IP Admission', icon: BedDouble, roles: ALL_ROLES,
     children: [
       { label: 'IP Details', to: '/executive/ip-details' },
-      // FIXED: was '/executive/ip-admission' which had no matching route in
-      // App.jsx, so it silently redirected to /login. Points at the real
-      // Admission page now.
       { label: 'Admission', to: '/executive/admission' },
-      // FIXED: was '/executive/room-transfer' — no matching route existed.
-      // The real page is registered at '/executive/room-transfer-approval'.
       { label: 'Room Transfer', to: '/executive/room-transfer-approval' },
       { label: 'Discharge Summary', to: '/executive/discharge-summary' },
     ],
@@ -98,6 +92,11 @@ export default function Sidebar() {
     : '/executive/dashboard'
 
   const billingManagementPath = user.role === 'executive' ? '/executive/billing-modifications' : '/admin/billing'
+
+  // Pharmacy is a fully separate module. Executives only ever see the
+  // executive sidebar/dashboard — no Pharmacy link. Admin and super_admin
+  // get everything, including Pharmacy.
+  const canSeePharmacyLink = user.role === 'admin' || user.role === 'super_admin'
 
   const toggleGroup = (key) => setOpenGroups((g) => ({ ...g, [key]: !g[key] }))
 
@@ -186,16 +185,18 @@ export default function Sidebar() {
           <ShieldAlert size={16} className="shrink-0" />
           Billing Management
         </NavLink>
-<a
-        
-          href="/pharmacy/dashboard"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-3 px-4 py-2.5 text-sm text-ink/60 hover:bg-ink/5"
-        >
-          <ExternalLink size={16} className="shrink-0" />
-          Pharmacy
-        </a>
+
+        {canSeePharmacyLink && (
+          <a
+            href="/pharmacy/dashboard"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-ink/60 hover:bg-ink/5"
+          >
+            <ExternalLink size={16} className="shrink-0" />
+            Pharmacy
+          </a>
+        )}
 
         {user.role === 'super_admin' && (
           <NavLink to="/superadmin/users" className={({ isActive }) => linkClass(isActive)}>

@@ -1,6 +1,6 @@
 """
 seed.py — creates one default login per role (super_admin, admin, executive,
-doctor, lab_technician) directly in the database.
+pharmacy, doctor, lab_technician) directly in the database.
 
 Run from the backend/ folder, after db.sql has been applied:
 
@@ -18,7 +18,8 @@ from db import query
 USERS = [
     ("Super Admin",     "superadmin@hms.com", "SuperAdmin@123", "super_admin"),
     ("Admin Manager",   "admin@hms.com",       "Admin@123",      "admin"),
-    ("Reception Desk",  "afreedsk247@gmail.com",   "1234",  "executive"),
+    ("Reception Desk",  "afreedsk247@gmail.com", "1234",         "executive"),
+    ("Pharmacy Desk",   "pharmacy@hms.com",    "Pharmacy@123",   "pharmacy"),
     ("Dr. Rao",         "doctor@hms.com",      "Doctor@123",     "doctor"),
     ("Lab Technician",  "labtech@hms.com",     "LabTech@123",    "lab_technician"),
 ]

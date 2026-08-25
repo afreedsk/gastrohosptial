@@ -4,7 +4,7 @@ import api from '../../api/axios'
 import { Section } from '../PageHeader'
 import PatientSearchPicker from './PatientSearchPicker'
 import DoctorSelect from './DoctorSelect'
-import ReferringDoctorSelect from './ReferringDoctorSelect'  // NEW
+import ReferringDoctorSelect from './ReferringDoctorSelect'
 
 const REFERRAL_TYPES = ['Walkin', 'Online', 'Doctor', 'Hospital User', 'Other', 'Camp', 'Ads', 'Friend/Family', 'Marketing']
 const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Cheque', 'NEFT', 'Credit']
@@ -25,6 +25,16 @@ function calcAge(dobStr) {
   return age >= 0 ? age : ''
 }
 
+function toYYYYMMDD(dateStr) {
+  if (!dateStr) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr
+  try {
+    const d = new Date(dateStr)
+    if (!isNaN(d)) return d.toISOString().slice(0, 10)
+  } catch {}
+  return ''
+}
+
 const empty = {
   title: 'Mr', first_name: '', last_name: '', gender: 'Male', age: '', dob: '',
   marital_status: 'Single', blood_group: '', aadhar_number: '', mobile: '', alt_phone: '',
@@ -32,7 +42,7 @@ const empty = {
   village: '', mandal: '', district: '', pincode: '',
   guardian_name: '', guardian_relation: '', guardian_mobile: '', mother_name: '',
   doctor_id: '', symptoms: '', floor: '1st Floor', room_type: 'General', room_no: '', bed_no: '',
-  referral_type: 'Walkin', referral_doctor_name: '',  // NEW
+  referral_type: 'Walkin', referral_doctor_name: '',
   payment_mode: 'Cash', advance_amount: 0, booking_type: 'Walk-in',
   abha_number: '', admitted_date: new Date().toISOString().slice(0, 10),
 }
@@ -48,12 +58,10 @@ export default function IPRegistrationForm({ onCreated }) {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
-  // DOB -> Age
   const onDobChange = (value) => {
     setForm((f) => ({ ...f, dob: value, age: calcAge(value) }))
   }
 
-  // Age -> DOB
   const onAgeChange = (value) => {
     setForm((f) => {
       const next = { ...f, age: value }
@@ -69,15 +77,25 @@ export default function IPRegistrationForm({ onCreated }) {
   const onDoctorChange = (id) => set('doctor_id', id)
   const onDoctorAdded = (doc) => setDoctors((prev) => [...prev, doc])
 
-  // Patient selection: fill basic data + fetch last IP registration
   const applyExistingPatient = async (patient) => {
+    let dob = toYYYYMMDD(patient.dob)
+    let age = patient.age ?? ''
+    if (dob) {
+      age = calcAge(dob)
+    }
+
     setForm((f) => ({
       ...f,
       ...patient,
-      age: patient.dob ? calcAge(patient.dob) : (patient.age ?? ''),
+      dob,
+      age,
     }))
 
-    // Fetch last IP registration for this patient
+    if (!patient.id) {
+      console.warn('Patient ID missing, skipping last IP registration fetch')
+      return
+    }
+
     try {
       const { data } = await api.get(`/ip-registrations/patient/${patient.id}/last`)
       if (data) {
@@ -94,7 +112,7 @@ export default function IPRegistrationForm({ onCreated }) {
           booking_type: data.booking_type || f.booking_type,
           doctor_id: data.doctor_id || f.doctor_id,
           symptoms: data.symptoms || f.symptoms,
-          admitted_date: data.admitted_date || f.admitted_date,
+          admitted_date: toYYYYMMDD(data.admitted_date) || f.admitted_date,
         }))
       }
     } catch (err) {
@@ -248,7 +266,6 @@ export default function IPRegistrationForm({ onCreated }) {
               {REFERRAL_TYPES.map((r) => <option key={r}>{r}</option>)}
             </select>
           </div>
-          {/* Conditional referral doctor select */}
           {form.referral_type === 'Doctor' && (
             <div className="md:col-span-2">
               <ReferringDoctorSelect

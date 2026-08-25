@@ -22,10 +22,19 @@ function calcAge(dobStr) {
   return age >= 0 ? age : ''
 }
 
-// Current date and time for default values
+function toYYYYMMDD(dateStr) {
+  if (!dateStr) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr
+  try {
+    const d = new Date(dateStr)
+    if (!isNaN(d)) return d.toISOString().slice(0, 10)
+  } catch {}
+  return ''
+}
+
 const now = new Date()
 const defaultDate = now.toISOString().slice(0, 10)
-const defaultTime = now.toTimeString().slice(0, 5) // HH:MM
+const defaultTime = now.toTimeString().slice(0, 5)
 
 const empty = {
   title: 'Mr', first_name: '', last_name: '', gender: 'Male', dob: '', age: '',
@@ -49,12 +58,10 @@ export default function OPRegistrationForm({ onCreated }) {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
-  // DOB -> Age
   const onDobChange = (value) => {
     setForm((f) => ({ ...f, dob: value, age: calcAge(value) }))
   }
 
-  // Age -> DOB
   const onAgeChange = (value) => {
     setForm((f) => {
       const next = { ...f, age: value }
@@ -67,7 +74,6 @@ export default function OPRegistrationForm({ onCreated }) {
     })
   }
 
-  // Consultant doctor change -> auto‑fill fee
   const onDoctorChange = (id) => {
     const doc = doctors.find((d) => String(d.id) === String(id))
     set('doctor_id', id)
@@ -79,16 +85,27 @@ export default function OPRegistrationForm({ onCreated }) {
     set('consultation_fee', doc.consultation_fee ?? 0)
   }
 
-  // Patient selection: fill basic data + fetch last OP registration
   const applyExistingPatient = async (patient) => {
-    // Set patient fields
+    // Sanitize DOB
+    let dob = toYYYYMMDD(patient.dob)
+    // Compute age from DOB if possible
+    let age = patient.age ?? ''
+    if (dob) {
+      age = calcAge(dob)
+    }
+
     setForm((f) => ({
       ...f,
       ...patient,
-      age: patient.dob ? calcAge(patient.dob) : (patient.age ?? ''),
+      dob,
+      age,
     }))
 
-    // Fetch last OP registration for this patient
+    if (!patient.id) {
+      console.warn('Patient ID missing, skipping last OP registration fetch')
+      return
+    }
+
     try {
       const { data } = await api.get(`/op-registrations/patient/${patient.id}/last`)
       if (data) {
@@ -97,13 +114,12 @@ export default function OPRegistrationForm({ onCreated }) {
           visit_type: data.visit_type || f.visit_type,
           referral_type: data.referral_type || f.referral_type,
           referral_doctor_name: data.referral_doctor_name || f.referral_doctor_name,
-          appointment_date: data.appointment_date || f.appointment_date,
+          appointment_date: toYYYYMMDD(data.appointment_date) || f.appointment_date,
           appointment_time: data.appointment_time || f.appointment_time,
           payment_mode: data.payment_mode || f.payment_mode,
           registration_fee: data.registration_fee || f.registration_fee,
           mlc: data.mlc || f.mlc,
           booking_type: data.booking_type || f.booking_type,
-          // Also fill doctor and consultation fee from last registration
           doctor_id: data.doctor_id || f.doctor_id,
           consultation_fee: data.consultation_fee || f.consultation_fee,
         }))

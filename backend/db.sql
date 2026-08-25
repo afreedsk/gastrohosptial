@@ -1901,3 +1901,9 @@ CREATE TABLE IF NOT EXISTS discharge_summaries (
 );
 
 ALTER TABLE discharge_summaries MODIFY discharge_advise JSON;
+ALTER TABLE users
+  MODIFY role ENUM('super_admin','admin','executive','pharmacy','doctor','lab_technician') NOT NULL DEFAULT 'executive';
+ALTER TABLE users
+  MODIFY role ENUM('super_admin','admin','executive','pharmacy','doctor','lab_technician') NOT NULL DEFAULT 'executive';
+ALTER TABLE ip_registrations 
+ADD COLUMN referral_doctor_name VARCHAR(200) NULL AFTER referral_type;

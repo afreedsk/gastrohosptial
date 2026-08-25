@@ -22,9 +22,6 @@ export default function PatientSearchPicker({ onSelect }) {
   const [error, setError] = useState('')
   const requestIdRef = useRef(0)
 
-  // Debounced search — waits 300ms after the user stops typing, and only
-  // applies the response if it's still the latest request (avoids a slow
-  // early response overwriting a faster later one).
   useEffect(() => {
     if (!q.trim()) {
       setResults([])
@@ -40,7 +37,7 @@ export default function PatientSearchPicker({ onSelect }) {
     const timer = setTimeout(async () => {
       try {
         const { data } = await api.get('/patients', { params: { search: q, limit: 20 } })
-        if (requestIdRef.current !== thisRequestId) return // stale response, ignore
+        if (requestIdRef.current !== thisRequestId) return
         setResults(data)
         setOpen(true)
       } catch (err) {
@@ -59,15 +56,35 @@ export default function PatientSearchPicker({ onSelect }) {
 
   const pick = (p) => {
     const { title, first_name, last_name } = splitName(p.name)
+    // Ensure dob is YYYY-MM-DD
+    const dob = p.dob ? p.dob.slice(0, 10) : ''
     onSelect({
-      title, first_name, last_name,
-      gender: p.gender, dob: p.dob ? p.dob.slice(0, 10) : '',
-      age: p.age, email: p.email || '', mobile: p.phone, alt_phone: p.alt_phone || '',
-      aadhar_number: p.aadhar_number || '', occupation: p.occupation || '',
-      blood_group: p.blood_group || '', marital_status: p.marital_status || 'Single',
-      street_address: p.street || '', city: p.city || '', state: p.state || '',
-      pincode: p.pincode || '', guardian_name: p.guardian_name || '',
-      guardian_relation: p.guardian_relation || '', guardian_mobile: p.guardian_phone || '',
+      id: p.id,
+      title,
+      first_name,
+      last_name,
+      gender: p.gender,
+      dob,
+      age: p.age || '',
+      email: p.email || '',
+      mobile: p.phone || '',
+      alt_phone: p.alt_phone || '',
+      aadhar_number: p.aadhar_number || '',
+      occupation: p.occupation || '',
+      blood_group: p.blood_group || '',
+      marital_status: p.marital_status || 'Single',
+      // Address – all fields
+      street_address: p.street || '',
+      village: p.village || '',
+      mandal: p.mandal || '',
+      district: p.district || '',
+      state: p.state || '',
+      city: p.city || '',
+      pincode: p.pincode || '',
+      // Guardian
+      guardian_name: p.guardian_name || '',
+      guardian_relation: p.guardian_relation || '',
+      guardian_mobile: p.guardian_phone || '',
     })
     setQ(`${p.name} — ${p.phone}`)
     setOpen(false)
@@ -97,10 +114,6 @@ export default function PatientSearchPicker({ onSelect }) {
             <button
               type="button"
               key={p.id}
-              // onMouseDown fires before the input's onBlur, so the click
-              // registers before React can close/unmount this dropdown.
-              // Using onClick here is the classic reason a "select" click
-              // appears to do nothing.
               onMouseDown={(e) => {
                 e.preventDefault()
                 pick(p)

@@ -15,7 +15,35 @@ def blank_to_none(v):
     return v
 
 
+def safe_date(v):
+    """Convert any input to YYYY-MM-DD or None."""
+    if not v:
+        return None
+    if isinstance(v, str) and len(v) == 10 and v[4] == '-' and v[7] == '-':
+        return v
+    try:
+        from datetime import datetime
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%a, %d %b %Y %H:%M:%S %Z", "%a, %d %b %Y"):
+            try:
+                d = datetime.strptime(v, fmt)
+                return d.date().isoformat()
+            except ValueError:
+                continue
+        try:
+            from dateutil import parser
+            d = parser.parse(v)
+            return d.date().isoformat()
+        except:
+            pass
+    except:
+        pass
+    return None
+
+
 def calc_age(dob_str):
+    if not dob_str:
+        return None
+    dob_str = safe_date(dob_str)
     if not dob_str:
         return None
     y, m, d = map(int, dob_str.split("-"))
@@ -39,10 +67,11 @@ def create_ip_registration():
     full_name = f"{d.get('title', '')} {d.get('first_name')} {d.get('last_name', '')}".strip()
 
     dob = blank_to_none(d.get("dob"))
+    dob = safe_date(dob)
     age = blank_to_none(d.get("age")) or calc_age(dob)
     mandal = blank_to_none(d.get("mandal"))
 
-    admitted_date = blank_to_none(d.get("admitted_date")) or date.today().isoformat()
+    admitted_date = safe_date(d.get("admitted_date")) or date.today().isoformat()
 
     existing = query("SELECT * FROM patients WHERE phone=%s ORDER BY id DESC LIMIT 1", (d["mobile"],))
     if existing:
@@ -71,6 +100,7 @@ def create_ip_registration():
 
     ip_reg_no = next_code("IPR", "ip_registrations", "ip_reg_no")
 
+    # Correct INSERT – exactly 42 placeholders, aligned with columns
     rid = query("""
         INSERT INTO ip_registrations (
             patient_id, ip_reg_no, opd_reg_no, title, first_name, last_name, gender, age, dob,
@@ -78,10 +108,19 @@ def create_ip_registration():
             state, city, locality, street_address, village, mandal, district, pincode,
             guardian_name, guardian_relation,
             guardian_mobile, mother_name, doctor_id, symptoms, floor, room_type, room_no, bed_no,
-            referral_type, referral_doctor_name,  -- added referral_doctor_name
+            referral_type, referral_doctor_name,
             payment_mode, advance_amount, booking_type, abha_number,
             admitted_date, created_by
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ) VALUES (
+            %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s,
+            %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s,
+            %s, %s, %s, %s,
+            %s, %s
+        )
     """, (
         patient_id, ip_reg_no, blank_to_none(d.get("opd_reg_no")), blank_to_none(d.get("title")),
         d.get("first_name"), blank_to_none(d.get("last_name")), d.get("gender"), age, dob,
@@ -225,7 +264,6 @@ def list_transfer_requests():
     return jsonify(rows)
 
 
-# NEW: Get the last IP registration for a patient
 @ip_reg_bp.route("/patient/<int:patient_id>/last", methods=["GET"])
 @jwt_required()
 def get_last_ip_registration(patient_id):

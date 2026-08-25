@@ -8,7 +8,6 @@ op_reg_bp = Blueprint("op_registrations", __name__)
 
 
 def blank_to_none(v):
-    """MySQL DATE/DECIMAL/INT columns reject '' — convert blank strings to NULL."""
     if v is None:
         return None
     if isinstance(v, str) and v.strip() == "":
@@ -16,7 +15,40 @@ def blank_to_none(v):
     return v
 
 
+def safe_date(v):
+    """Convert any input to YYYY-MM-DD or None."""
+    if not v:
+        return None
+    # If already a string in YYYY-MM-DD, return it
+    if isinstance(v, str) and len(v) == 10 and v[4] == '-' and v[7] == '-':
+        return v
+    try:
+        # Try to parse as date
+        from datetime import datetime
+        # Try common formats
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%a, %d %b %Y %H:%M:%S %Z", "%a, %d %b %Y"):
+            try:
+                d = datetime.strptime(v, fmt)
+                return d.date().isoformat()
+            except ValueError:
+                continue
+        # If still fails, try with dateutil parser if available
+        try:
+            from dateutil import parser
+            d = parser.parse(v)
+            return d.date().isoformat()
+        except:
+            pass
+    except:
+        pass
+    return None
+
+
 def calc_age(dob_str):
+    if not dob_str:
+        return None
+    # Ensure dob_str is YYYY-MM-DD
+    dob_str = safe_date(dob_str)
     if not dob_str:
         return None
     y, m, d = map(int, dob_str.split("-"))
@@ -47,13 +79,13 @@ def create_op_registration():
     full_name = f"{d.get('title', '')} {d.get('first_name')} {d.get('last_name', '')}".strip()
 
     dob = blank_to_none(d.get("dob"))
+    dob = safe_date(dob)  # ensure valid format
     age = calc_age(dob)
     mandal = blank_to_none(d.get("mandal"))
     state = blank_to_none(d.get("state"))
     pincode = blank_to_none(d.get("pincode"))
 
-    # find-or-create the underlying patient record (by mobile) so repeat
-    # visits share one MR Number instead of creating duplicate patients
+    # find-or-create patient
     existing = query("SELECT * FROM patients WHERE phone=%s ORDER BY id DESC LIMIT 1", (d["mobile"],))
     if existing:
         patient_id = existing["id"]
@@ -80,6 +112,9 @@ def create_op_registration():
     opd_reg_no = next_code("OPD", "op_registrations", "opd_reg_no")
     token_no = next_token_for_today()
 
+    # Sanitize date fields
+    appointment_date = safe_date(d.get("appointment_date"))
+
     rid = query("""
         INSERT INTO op_registrations (
             patient_id, opd_reg_no, token_no, title, first_name, last_name, gender, dob,
@@ -100,7 +135,7 @@ def create_op_registration():
         village, mandal, district, state, pincode,
         blank_to_none(d.get("doctor_id")), d.get("consultation_fee", 0) or 0,
         d.get("referral_type", "Walkin"), blank_to_none(d.get("referral_doctor_name")),
-        blank_to_none(d.get("appointment_date")), blank_to_none(d.get("appointment_time")),
+        appointment_date, blank_to_none(d.get("appointment_time")),
         d.get("payment_mode", "Cash"), d.get("registration_fee", 0) or 0,
         blank_to_none(d.get("abha_number")), blank_to_none(d.get("occupation")),
         blank_to_none(d.get("blood_group")), int(bool(d.get("mlc"))),
@@ -138,7 +173,6 @@ def list_op_registrations():
     return jsonify(rows)
 
 
-# NEW: Get the last OP registration for a patient
 @op_reg_bp.route("/patient/<int:patient_id>/last", methods=["GET"])
 @jwt_required()
 def get_last_op_registration(patient_id):

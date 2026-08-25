@@ -34,12 +34,10 @@ import OPLabReport from './pages/executive/reports/OPLabReport'
 import IPRadiologyReport from './pages/executive/reports/IPRadiologyReport'
 import OPRadiologyReport from './pages/executive/reports/OPRadiologyReport'
 
-// NEW imports for the standalone IP Lab / Services / Procedures pages
 import IPLabPage from './pages/executive/IPLabPage'
 import IPServicesPage from './pages/executive/IPServicesPage'
 import IPProceduresPage from './pages/executive/IPProceduresPage'
 
-// Pharmacy
 import PharmacyLayout from './components/pharmacy/PharmacyLayout'
 import PharmacyDashboard from './pages/pharmacy/Dashboard'
 import PharmacyComingSoon from './pages/pharmacy/ComingSoon'
@@ -56,7 +54,14 @@ function withPharmacyLayout(el) {
   return <PharmacyLayout>{el}</PharmacyLayout>
 }
 
+// Executive-side pages: executive, admin, and super_admin can all reach these.
 const EXEC_ROLES = ['executive', 'admin', 'super_admin']
+
+// Pharmacy-side pages: the dedicated pharmacy role, plus admin and
+// super_admin (per your requirement — admin/superadmin see everything).
+// 'executive' is deliberately NOT included, so an executive user has no
+// route access to /pharmacy/* even by typing the URL directly.
+const PHARMACY_ROLES = ['pharmacy', 'admin', 'super_admin']
 
 const PLACEHOLDERS = [
   ['Inpatient Dashboard', '/executive/inpatient-dashboard'],
@@ -66,8 +71,6 @@ const PLACEHOLDERS = [
   ['Billing Summary', '/executive/billing-summary'],
   ['Referral Doctor', '/executive/referral-doctor'],
 ]
-
-const PHARMACY_ROLES = EXEC_ROLES
 
 const PHARMACY_PLACEHOLDERS = [
   ['Inventory Type', '/pharmacy/masters/inventory-type'],
@@ -173,7 +176,6 @@ export default function App() {
           <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<IPDetails />)}</ProtectedRoute>
         } />
 
-        {/* NEW routes for standalone IP Lab / Services / Procedures pages */}
         <Route path="/executive/ip-lab" element={
           <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<IPLabPage />)}</ProtectedRoute>
         } />
@@ -184,8 +186,8 @@ export default function App() {
           <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<IPProceduresPage />)}</ProtectedRoute>
         } />
         <Route path="/executive/discharge-summary/:id?" element={
-  <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<DischargeSummary />)}</ProtectedRoute>
-} />
+          <ProtectedRoute roles={EXEC_ROLES}>{withLayout(<DischargeSummary />)}</ProtectedRoute>
+        } />
 
         {/* Reports */}
         <Route path="/executive/reports/ip-lab" element={

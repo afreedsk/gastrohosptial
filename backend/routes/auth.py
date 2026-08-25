@@ -5,7 +5,7 @@ from db import query
 
 auth_bp = Blueprint("auth", __name__)
 
-ALLOWED_ROLES = ["super_admin", "admin", "executive", "doctor", "lab_technician"]
+ALLOWED_ROLES = ["super_admin", "admin", "executive", "pharmacy", "doctor", "lab_technician"]
 
 
 @auth_bp.route("/register", methods=["POST"])
@@ -44,11 +44,9 @@ def login():
 
     user = query("SELECT * FROM users WHERE email=%s AND is_active=1", (email,))
 
-    # Wrong email, or account not seeded/registered yet
     if not user:
         return jsonify({"error": "Invalid email or password"}), 401
 
-    # Wrong password
     if not check_password_hash(user["password_hash"], password):
         return jsonify({"error": "Invalid email or password"}), 401
 
