@@ -1902,8 +1902,165 @@ CREATE TABLE IF NOT EXISTS discharge_summaries (
 
 ALTER TABLE discharge_summaries MODIFY discharge_advise JSON;
 ALTER TABLE users
-  MODIFY role ENUM('super_admin','admin','executive','pharmacy','doctor','lab_technician') NOT NULL DEFAULT 'executive';
+  MODIFY role ENUM('super_admin','admin'	,'executive','pharmacy','doctor','lab_technician') NOT NULL DEFAULT 'executive';
 ALTER TABLE users
   MODIFY role ENUM('super_admin','admin','executive','pharmacy','doctor','lab_technician') NOT NULL DEFAULT 'executive';
 ALTER TABLE ip_registrations 
 ADD COLUMN referral_doctor_name VARCHAR(200) NULL AFTER referral_type;
+ALTER TABLE ip_registrations 
+ADD COLUMN referral_doctor_name VARCHAR(200) NULL AFTER referral_type;
+
+-- OP Lab transactions
+CREATE TABLE IF NOT EXISTS op_lab (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    op_registration_id INT NOT NULL,
+    item_name VARCHAR(255) NOT NULL,
+    quantity DECIMAL(10,2) DEFAULT 1,
+    rate DECIMAL(10,2) DEFAULT 0,
+    amount DECIMAL(10,2) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (op_registration_id) REFERENCES op_registrations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- OP Services transactions
+CREATE TABLE IF NOT EXISTS op_services (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    op_registration_id INT NOT NULL,
+    service_name VARCHAR(255) NOT NULL,
+    quantity DECIMAL(10,2) DEFAULT 1,
+    rate DECIMAL(10,2) DEFAULT 0,
+    amount DECIMAL(10,2) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (op_registration_id) REFERENCES op_registrations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- OP Procedures transactions
+CREATE TABLE IF NOT EXISTS op_procedures (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    op_registration_id INT NOT NULL,
+    procedure_name VARCHAR(255) NOT NULL,
+    quantity DECIMAL(10,2) DEFAULT 1,
+    rate DECIMAL(10,2) DEFAULT 0,
+    amount DECIMAL(10,2) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (op_registration_id) REFERENCES op_registrations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- SUPPLIERS TABLE (referenced by GRN and Stock Adjustments)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS suppliers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    phone VARCHAR(15),
+    email VARCHAR(100),
+    address TEXT,
+    gst_no VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- PHARMACY ITEMS TABLE (referenced by GRN items & stock adj.)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS pharmacy_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    item_code VARCHAR(50) UNIQUE,
+    item_name VARCHAR(200) NOT NULL,
+    category VARCHAR(100),
+    unit VARCHAR(20),
+    hsn_code VARCHAR(20),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- GRN (Goods Receive Note)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS grn (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    grn_no VARCHAR(50) NOT NULL UNIQUE,
+    grn_date DATE NOT NULL,
+    invoice_no VARCHAR(50),
+    invoice_date DATE,
+    supplier_id INT,
+    supplier_mobile VARCHAR(15),
+    total_amount DECIMAL(12,2) DEFAULT 0,
+    created_by INT,
+    status ENUM('Draft', 'Received', 'Approved', 'Returned') DEFAULT 'Draft',
+    remarks TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (supplier_id) REFERENCES suppliers(id),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- GRN ITEMS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS grn_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    grn_id INT NOT NULL,
+    item_id INT NOT NULL,
+    batch_no VARCHAR(50),
+    exp_date DATE,
+    quantity DECIMAL(10,2) DEFAULT 0,
+    mrp DECIMAL(10,2) DEFAULT 0,
+    rate DECIMAL(10,2) DEFAULT 0,
+    eff_rate DECIMAL(10,2) DEFAULT 0,
+    tax_percent DECIMAL(5,2) DEFAULT 0,
+    amount DECIMAL(12,2) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (grn_id) REFERENCES grn(id) ON DELETE CASCADE,
+    FOREIGN KEY (item_id) REFERENCES pharmacy_items(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- STOCK ADJUSTMENTS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS stock_adjustments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    adjustment_no VARCHAR(50) NOT NULL UNIQUE,
+    adjustment_date DATE NOT NULL,
+    item_id INT NOT NULL,
+    batch_no VARCHAR(50),
+    exp_date DATE,
+    quantity DECIMAL(10,2) NOT NULL,
+    mrp DECIMAL(10,2),
+    rate DECIMAL(10,2),
+    eff_rate DECIMAL(10,2),
+    tax_percent DECIMAL(5,2),
+    grn_id INT,
+    supplier_id INT,
+    reason VARCHAR(255),
+    created_by INT,
+    status ENUM('Draft', 'Approved') DEFAULT 'Draft',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (item_id) REFERENCES pharmacy_items(id),
+    FOREIGN KEY (grn_id) REFERENCES grn(id),
+    FOREIGN KEY (supplier_id) REFERENCES suppliers(id),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO suppliers (name, phone) VALUES ('ABC Pharma', '9876543210'), ('XYZ Distributors', '9876543211');
+INSERT INTO pharmacy_items (item_code, item_name) VALUES ('P001', 'Paracetamol 500mg'), ('P002', 'Amoxicillin 250mg');
+
+ALTER TABLE suppliers ADD COLUMN inventory_type VARCHAR(100) NULL AFTER name;
+ALTER TABLE suppliers ADD COLUMN vat_no VARCHAR(50) NULL;
+ALTER TABLE suppliers ADD COLUMN contact_person VARCHAR(100) NULL;
+ALTER TABLE suppliers ADD COLUMN contact_no VARCHAR(15) NULL;
+ALTER TABLE suppliers ADD COLUMN email VARCHAR(100) NULL;
+ALTER TABLE suppliers ADD COLUMN gst_no VARCHAR(50) NULL;
+ALTER TABLE suppliers ADD COLUMN pincode VARCHAR(10) NULL;
+ALTER TABLE suppliers ADD COLUMN address TEXT NULL;
+ALTER TABLE suppliers ADD COLUMN fax VARCHAR(20) NULL;
+ALTER TABLE suppliers ADD COLUMN alt_contact_no VARCHAR(15) NULL;
+ALTER TABLE suppliers ADD COLUMN website VARCHAR(200) NULL;
+ALTER TABLE suppliers ADD COLUMN remarks TEXT NULL;
+ALTER TABLE suppliers ADD COLUMN apgst_no VARCHAR(50) NULL;
+ALTER TABLE suppliers ADD COLUMN cst_no VARCHAR(50) NULL;
+ALTER TABLE suppliers ADD COLUMN dl_no VARCHAR(50) NULL;
+ALTER TABLE suppliers ADD COLUMN pan_no VARCHAR(50) NULL;
+ALTER TABLE suppliers ADD COLUMN is_active BOOLEAN DEFAULT TRUE;
+ALTER TABLE suppliers ADD COLUMN is_igst_tax BOOLEAN DEFAULT FALSE;
+ALTER TABLE suppliers ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
