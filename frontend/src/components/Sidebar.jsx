@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, UserPlus, BedDouble, CalendarCheck, Receipt,
   FileBarChart, Ban, ChevronDown, ChevronRight, LogOut, Users, ShieldAlert,
-  ExternalLink,
+  ExternalLink, Settings, // <-- Settings imported
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
@@ -65,6 +65,39 @@ const NAV_TREE = [
       { label: 'Outpatient Lab Reports', to: '/executive/reports/op-lab' },
       { label: 'Inpatient Radiology Reports', to: '/executive/reports/ip-radiology' },
       { label: 'Outpatient Radiology Reports', to: '/executive/reports/op-radiology' },
+    ],
+  },
+  // ============================================================
+  // NEW: MASTERS GROUP (only for super_admin)
+  // ============================================================
+  {
+    type: 'group', key: 'masters', label: 'Masters', icon: Settings, roles: ['super_admin'],
+    children: [
+      { label: 'Users', to: '/superadmin/users' },
+      { label: 'Permission Profiles', to: '/superadmin/permission-profiles' },
+      { label: 'Doctors', to: '/superadmin/doctors' },
+      { label: 'Specialization', to: '/superadmin/specializations' },
+      { label: 'Referral Marketing', to: '/superadmin/referral-marketing' },
+      { label: 'Company', to: '/superadmin/companies' },
+      { label: 'Discharge Form', to: '/superadmin/discharge-forms' },
+      { label: 'Procedures', to: '/superadmin/procedures' },
+      { label: 'Lab Test Category', to: '/superadmin/lab-test-categories' },
+      { label: 'Lab Test Attributes', to: '/superadmin/lab-test-attributes' },
+      { label: 'Lab Tests', to: '/superadmin/lab-tests' },
+      { label: 'Lab Packages', to: '/superadmin/lab-packages' },
+      { label: 'Lab Vendor', to: '/superadmin/lab-vendors' },
+      { label: 'Radiology', to: '/superadmin/radiology' },
+      { label: 'Radiology Departments', to: '/superadmin/radiology-departments' },
+      { label: 'Floors', to: '/superadmin/floors' },
+      { label: 'Rooms', to: '/superadmin/rooms' },
+      { label: 'Room Types', to: '/superadmin/room-types' },
+      { label: 'Equipment', to: '/superadmin/equipment' },
+      { label: 'Operation Theatre', to: '/superadmin/operation-theatres' },
+      { label: 'Insurance', to: '/superadmin/insurance' },
+      { label: 'File Upload', to: '/superadmin/file-upload' },
+      { label: 'Services', to: '/superadmin/services' },
+      { label: 'Certificates', to: '/superadmin/certificates' },
+      { label: 'Master Refund Request Reason', to: '/superadmin/refund-reasons' },
     ],
   },
 ]

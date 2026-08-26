@@ -40,6 +40,7 @@ from routes.op_procedures import op_procedures_bp
 from routes.grn import grn_bp
 from routes.stock_adjustments import stock_adj_bp
 from routes.suppliers import suppliers_bp
+from routes.permissions import permissions_bp
 DEBUG = os.getenv("FLASK_ENV", "development") == "development"
 
 
@@ -84,6 +85,7 @@ def create_app():
     app.register_blueprint(op_procedures_bp, url_prefix="/api/op-procedures")
     app.register_blueprint(grn_bp, url_prefix="/api/grn")
     app.register_blueprint(stock_adj_bp, url_prefix="/api/stock-adjustments")
+    app.register_blueprint(permissions_bp, url_prefix="/api/permissions")
     app.register_blueprint(suppliers_bp, url_prefix="/api/suppliers")
     @app.route("/api/health")
     def health():

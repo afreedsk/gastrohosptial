@@ -52,6 +52,8 @@ import OPProceduresPage from './pages/executive/OPProceduresPage'
 import GoodsReceiveNote from './pages/pharmacy/GoodsReceiveNote'
 import StockAdjustments from './pages/pharmacy/StockAdjustments'
 import SupplierMaster from './pages/pharmacy/SupplierMaster'
+import DoctorMaster from './pages/superadmin/DoctorMaster'
+import PermissionProfiles from './pages/superadmin/PermissionProfiles'
 function withLayout(el) {
   return <Layout>{el}</Layout>
 }
@@ -101,6 +103,31 @@ const PHARMACY_PLACEHOLDERS = [
   ['Due Collections', '/pharmacy/due-collections'],
   ['Stock', '/pharmacy/stock'],
   ['Expenses', '/pharmacy/expenses'],
+]
+
+const MASTER_PLACEHOLDERS = [
+  ['Specialization', '/superadmin/specializations'],
+  ['Referral Marketing', '/superadmin/referral-marketing'],
+  ['Company', '/superadmin/companies'],
+  ['Discharge Form', '/superadmin/discharge-forms'],
+  ['Procedures', '/superadmin/procedures'],
+  ['Lab Test Category', '/superadmin/lab-test-categories'],
+  ['Lab Test Attributes', '/superadmin/lab-test-attributes'],
+  ['Lab Tests', '/superadmin/lab-tests'],
+  ['Lab Packages', '/superadmin/lab-packages'],
+  ['Lab Vendor', '/superadmin/lab-vendors'],
+  ['Radiology', '/superadmin/radiology'],
+  ['Radiology Departments', '/superadmin/radiology-departments'],
+  ['Floors', '/superadmin/floors'],
+  ['Rooms', '/superadmin/rooms'],
+  ['Room Types', '/superadmin/room-types'],
+  ['Equipment', '/superadmin/equipment'],
+  ['Operation Theatre', '/superadmin/operation-theatres'],
+  ['Insurance', '/superadmin/insurance'],
+  ['File Upload', '/superadmin/file-upload'],
+  ['Services', '/superadmin/services'],
+  ['Certificates', '/superadmin/certificates'],
+  ['Master Refund Request Reason', '/superadmin/refund-reasons'],
 ]
 
 export default function App() {
@@ -243,6 +270,12 @@ export default function App() {
 } />
 <Route path="/pharmacy/masters/supplier" element={
   <ProtectedRoute roles={PHARMACY_ROLES}>{withPharmacyLayout(<SupplierMaster />)}</ProtectedRoute>
+} />
+<Route path="/superadmin/doctors" element={
+  <ProtectedRoute roles={['super_admin']}>{withLayout(<DoctorMaster />)}</ProtectedRoute>
+} />
+<Route path="/superadmin/permission-profiles" element={
+  <ProtectedRoute roles={['super_admin']}>{withLayout(<PermissionProfiles />)}</ProtectedRoute>
 } />
 
         {/* Placeholders */}
