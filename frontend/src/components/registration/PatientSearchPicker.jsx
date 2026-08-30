@@ -56,7 +56,6 @@ export default function PatientSearchPicker({ onSelect }) {
 
   const pick = (p) => {
     const { title, first_name, last_name } = splitName(p.name)
-    // Ensure dob is YYYY-MM-DD
     const dob = p.dob ? p.dob.slice(0, 10) : ''
     onSelect({
       id: p.id,
@@ -73,7 +72,6 @@ export default function PatientSearchPicker({ onSelect }) {
       occupation: p.occupation || '',
       blood_group: p.blood_group || '',
       marital_status: p.marital_status || 'Single',
-      // Address – all fields
       street_address: p.street || '',
       village: p.village || '',
       mandal: p.mandal || '',
@@ -81,10 +79,11 @@ export default function PatientSearchPicker({ onSelect }) {
       state: p.state || '',
       city: p.city || '',
       pincode: p.pincode || '',
-      // Guardian
       guardian_name: p.guardian_name || '',
       guardian_relation: p.guardian_relation || '',
       guardian_mobile: p.guardian_phone || '',
+      // IMPORTANT: pass reg_no as patient_reg_no (the SGR number)
+      patient_reg_no: p.reg_no || '',   // New field
     })
     setQ(`${p.name} — ${p.phone}`)
     setOpen(false)
@@ -97,7 +96,7 @@ export default function PatientSearchPicker({ onSelect }) {
         {loading ? <Loader2 size={14} className="text-ink/40 animate-spin" /> : <Search size={14} className="text-ink/40" />}
         <input
           className="input"
-          placeholder="Type name, mobile, email, or MR number (e.g. PT-000003)"
+          placeholder="Type name, mobile, email, or patient reg no (e.g. SGR000001)"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onFocus={() => (results.length || error) && setOpen(true)}
@@ -122,7 +121,7 @@ export default function PatientSearchPicker({ onSelect }) {
             >
               <div className="flex justify-between">
                 <span className="font-medium">{p.name}</span>
-                <span className="text-ink/40 text-xs">{p.patient_uid}</span>
+                <span className="text-ink/40 text-xs">{p.reg_no || p.patient_uid}</span>
               </div>
               <p className="text-xs text-ink/50">{p.phone} · {p.gender} · Age {p.age ?? '—'}</p>
             </button>

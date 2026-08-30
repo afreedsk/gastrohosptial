@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, UserPlus, BedDouble, CalendarCheck, Receipt,
   FileBarChart, Ban, ChevronDown, ChevronRight, LogOut, Users, ShieldAlert,
-  ExternalLink, Settings, // <-- Settings imported
+  ExternalLink, Settings, FlaskConical, // <-- Added FlaskConical for Lab icon
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
@@ -68,7 +68,7 @@ const NAV_TREE = [
     ],
   },
   // ============================================================
-  // NEW: MASTERS GROUP (only for super_admin)
+  // MASTERS GROUP (only for super_admin)
   // ============================================================
   {
     type: 'group', key: 'masters', label: 'Masters', icon: Settings, roles: ['super_admin'],
@@ -122,6 +122,7 @@ export default function Sidebar() {
 
   const dashboardPath = user.role === 'super_admin' ? '/superadmin/dashboard'
     : user.role === 'admin' ? '/admin/dashboard'
+    : user.role === 'lab_technician' ? '/lab/dashboard'
     : '/executive/dashboard'
 
   const billingManagementPath = user.role === 'executive' ? '/executive/billing-modifications' : '/admin/billing'
@@ -130,6 +131,9 @@ export default function Sidebar() {
   // executive sidebar/dashboard — no Pharmacy link. Admin and super_admin
   // get everything, including Pharmacy.
   const canSeePharmacyLink = user.role === 'admin' || user.role === 'super_admin'
+
+  // Lab Technician link - visible to admin, super_admin, and lab_technician
+  const canSeeLabLink = ['admin', 'super_admin', 'lab_technician'].includes(user.role)
 
   const toggleGroup = (key) => setOpenGroups((g) => ({ ...g, [key]: !g[key] }))
 
@@ -229,6 +233,21 @@ export default function Sidebar() {
             <ExternalLink size={16} className="shrink-0" />
             Pharmacy
           </a>
+        )}
+
+        {/* Lab Technician link - separate from Pharmacy */}
+        {canSeeLabLink && (
+          <NavLink
+            to="/lab/dashboard"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-2.5 text-sm ${
+                isActive ? 'bg-teal-50 text-teal-700 border-r-2 border-teal-600 font-medium' : 'text-ink/60 hover:bg-ink/5'
+              }`
+            }
+          >
+            <FlaskConical size={16} className="shrink-0" />
+            Lab Technician
+          </NavLink>
         )}
 
         {user.role === 'super_admin' && (

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LogIn } from 'lucide-react'
 import { useAuth, dashboardPathForRole } from '../../context/AuthContext'
-import logo from '../../assets/siddharthhospital.png' // adjust if name differs
+import logo from '../../assets/siddharthhospital.png'
 
 export default function Login() {
   const { login } = useAuth()
@@ -11,11 +11,17 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showSplash, setShowSplash] = useState(true)
   const [fadeIn, setFadeIn] = useState(false)
 
-  // Trigger animation after component mounts
+  // Show splash for 3 seconds, then transition to login
   useEffect(() => {
-    setFadeIn(true)
+    const timer = setTimeout(() => {
+      setShowSplash(false)
+      // Trigger login form fade‑in after a short delay
+      setTimeout(() => setFadeIn(true), 100)
+    }, 3000)
+    return () => clearTimeout(timer)
   }, [])
 
   const submit = async (e) => {
@@ -32,6 +38,26 @@ export default function Login() {
     }
   }
 
+  // ---------- SPLASH SCREEN ----------
+  if (showSplash) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 to-white">
+        <div className="text-center animate-popIn">
+          <img
+            src={logo}
+            alt="Siddharth Hospital"
+            className="w-48 h-48 mx-auto object-contain drop-shadow-2xl animate-pulse"
+          />
+          <h1 className="text-3xl font-display font-bold text-teal-700 mt-4">
+            Siddharth Hospital
+          </h1>
+          <p className="text-sm text-ink/50 mt-2">Healthcare Management System</p>
+        </div>
+      </div>
+    )
+  }
+
+  // ---------- LOGIN FORM ----------
   return (
     <div className="min-h-screen flex items-center justify-center bg-ink/5">
       <div
@@ -41,12 +67,11 @@ export default function Login() {
           ${fadeIn ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}
         `}
       >
-        {/* Logo & Title */}
         <div className="text-center mb-6">
           <img
             src={logo}
             alt="Siddharth Hospital"
-            className="w-32 h-32 mx-auto object-contain mb-3 drop-shadow-md"
+            className="w-24 h-24 mx-auto object-contain mb-3 drop-shadow-md"
           />
           <h1 className="text-2xl font-display font-semibold text-ink tracking-tight">
             Siddharth Hospital

@@ -5,6 +5,7 @@ import api from '../../api/axios'
 import { PageHeader, Section } from '../../components/PageHeader'
 import DoctorSelect from '../../components/registration/DoctorSelect'
 import RichTextEditor from '../../components/RichTextEditor'
+import { printDischargeSummary } from '../../utils/printUtils'
 
 function formatDate(dt) {
   if (!dt) return ''
@@ -102,7 +103,6 @@ export default function DischargeSummary() {
   const { id } = useParams()
   const navigate = useNavigate()
 
-  // All hooks must be called unconditionally
   const [summary, setSummary] = useState(emptySummary)
   const [doctors, setDoctors] = useState([])
   const [loading, setLoading] = useState(true)
@@ -111,12 +111,10 @@ export default function DischargeSummary() {
   const [success, setSuccess] = useState('')
 
   useEffect(() => {
-    // Load doctors always
     api.get('/doctors')
       .then(res => setDoctors(res.data))
       .catch(err => console.error('Failed to load doctors', err))
 
-    // If we have an id, load the patient and summary data
     if (id) {
       Promise.all([
         api.get(`/ip-registrations/${id}`),
@@ -166,12 +164,10 @@ export default function DischargeSummary() {
           setLoading(false)
         })
     } else {
-      // No id, we are in list view, no need to load patient data
       setLoading(false)
     }
   }, [id])
 
-  // If no id, render the list view (after hooks)
   if (!id) {
     return (
       <div>
@@ -181,7 +177,6 @@ export default function DischargeSummary() {
     )
   }
 
-  // Now we are in detail view – define all handlers and return the detail form
   const setField = (field, value) => {
     setSummary(prev => ({ ...prev, [field]: value }))
   }
@@ -249,8 +244,41 @@ export default function DischargeSummary() {
     }
   }
 
-  const handlePrint = () => {
-    window.print()
+  const handlePrintOnly = () => {
+    const doctor = doctors.find(d => String(d.id) === String(summary.doctor_id))
+    const printData = {
+      ...summary,
+      doctor_name: doctor ? doctor.name : '',
+    }
+    printDischargeSummary(printData)
+  }
+
+  const saveAndPrint = async (withLogo = false) => {
+    setError('')
+    setSuccess('')
+    setSaving(true)
+    try {
+      const payload = {
+        ...summary,
+        examination: JSON.stringify(summary.examination),
+        discharge_advise: summary.discharge_advise,
+      }
+      await api.post('/discharge-summary', payload)
+      setSuccess(`Discharge summary saved${withLogo ? ' with logo' : ''}`)
+      
+      setTimeout(() => {
+        const doctor = doctors.find(d => String(d.id) === String(summary.doctor_id))
+        const printData = {
+          ...summary,
+          doctor_name: doctor ? doctor.name : '',
+        }
+        printDischargeSummary(printData)
+      }, 500)
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to save discharge summary')
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (loading) return <div className="p-8 text-center">Loading patient data...</div>
@@ -414,11 +442,14 @@ export default function DischargeSummary() {
           <button className="btn-primary flex items-center gap-2" onClick={() => saveSummary(false)} disabled={saving}>
             <Save size={16} /> {saving ? 'Saving...' : 'Save'}
           </button>
-          <button className="btn-primary flex items-center gap-2" onClick={() => saveSummary(true)} disabled={saving}>
-            <Save size={16} /> {saving ? 'Saving...' : 'Save & with logo'}
+          <button className="btn-primary flex items-center gap-2" onClick={() => saveAndPrint(true)} disabled={saving}>
+            <Save size={16} /> {saving ? 'Saving...' : 'Save & Print with Logo'}
           </button>
-          <button className="btn-secondary flex items-center gap-2" onClick={handlePrint}>
-            <Printer size={16} /> Print
+          <button className="btn-primary flex items-center gap-2" onClick={() => saveAndPrint(false)} disabled={saving}>
+            <Save size={16} /> {saving ? 'Saving...' : 'Save & Print without Logo'}
+          </button>
+          <button className="btn-secondary flex items-center gap-2" onClick={handlePrintOnly}>
+            <Printer size={16} /> Print (without saving)
           </button>
           <button className="btn-secondary flex items-center gap-2" onClick={() => navigate(-1)}>
             <XCircle size={16} /> Cancel

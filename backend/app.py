@@ -41,6 +41,8 @@ from routes.grn import grn_bp
 from routes.stock_adjustments import stock_adj_bp
 from routes.suppliers import suppliers_bp
 from routes.permissions import permissions_bp
+from routes.lab_reports import lab_reports_bp
+from routes.lab_tests import lab_tests_bp
 DEBUG = os.getenv("FLASK_ENV", "development") == "development"
 
 
@@ -87,6 +89,8 @@ def create_app():
     app.register_blueprint(stock_adj_bp, url_prefix="/api/stock-adjustments")
     app.register_blueprint(permissions_bp, url_prefix="/api/permissions")
     app.register_blueprint(suppliers_bp, url_prefix="/api/suppliers")
+    app.register_blueprint(lab_reports_bp, url_prefix="/api/lab-reports")
+    app.register_blueprint(lab_tests_bp, url_prefix="/api/lab-tests")
     @app.route("/api/health")
     def health():
         return jsonify({"status": "ok"})

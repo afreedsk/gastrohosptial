@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { BedDouble } from 'lucide-react'
+import { BedDouble, Printer } from 'lucide-react'
 import api from '../../api/axios'
 import { Section } from '../PageHeader'
 import PatientSearchPicker from './PatientSearchPicker'
 import DoctorSelect from './DoctorSelect'
 import ReferringDoctorSelect from './ReferringDoctorSelect'
+import { printPatientRegistration } from '../../utils/printUtils'
+import SuccessPopup from '../SuccessPopup'
 
 const REFERRAL_TYPES = ['Walkin', 'Online', 'Doctor', 'Hospital User', 'Other', 'Camp', 'Ads', 'Friend/Family', 'Marketing']
 const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Cheque', 'NEFT', 'Credit']
@@ -53,6 +55,7 @@ export default function IPRegistrationForm({ onCreated }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(null)
+  const [showSuccess, setShowSuccess] = useState(false)
 
   useEffect(() => { api.get('/doctors').then((r) => setDoctors(r.data)).catch(() => {}) }, [])
 
@@ -131,11 +134,21 @@ export default function IPRegistrationForm({ onCreated }) {
       setSaved(data)
       setForm(empty)
       onCreated?.()
+      setShowSuccess(true)
     } catch (err) {
       setError(err.response?.data?.error || 'Could not save admission')
     } finally {
       setSaving(false)
     }
+  }
+
+  const handlePrint = () => {
+    const doctor = doctors.find(d => String(d.id) === String(form.doctor_id))
+    const printData = {
+      ...form,
+      doctor_name: doctor ? doctor.name : '',
+    }
+    printPatientRegistration(printData, 'IP')
   }
 
   return (
@@ -295,8 +308,22 @@ export default function IPRegistrationForm({ onCreated }) {
         <button className="btn-primary flex items-center gap-2" disabled={saving}>
           <BedDouble size={15} /> {saving ? 'Saving…' : 'Admit Patient'}
         </button>
+        <button type="button" className="btn-secondary flex items-center gap-2" onClick={handlePrint}>
+          <Printer size={15} /> Print
+        </button>
         <button type="button" className="btn-secondary" onClick={() => setForm(empty)}>Cancel</button>
       </div>
+
+      {showSuccess && (
+        <SuccessPopup
+          message={
+            saved
+              ? `Patient ${saved.first_name} ${saved.last_name} admitted successfully!\nIP Reg No: ${saved.ip_reg_no}`
+              : 'Admission successful!'
+          }
+          onClose={() => setShowSuccess(false)}
+        />
+      )}
     </form>
   )
 }

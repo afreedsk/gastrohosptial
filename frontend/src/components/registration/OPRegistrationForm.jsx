@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { UserPlus } from 'lucide-react'
+import { UserPlus, Printer } from 'lucide-react'
 import api from '../../api/axios'
 import { Section } from '../PageHeader'
 import PatientSearchPicker from './PatientSearchPicker'
 import DoctorSelect from './DoctorSelect'
 import ReferringDoctorSelect from './ReferringDoctorSelect'
+import { printPatientRegistration } from '../../utils/printUtils'
+import SuccessPopup from '../SuccessPopup'
 
 const REFERRAL_TYPES = ['Walkin', 'Online', 'Doctor', 'Hospital User', 'Other', 'Camp', 'Ads', 'Friend/Family', 'Marketing']
 const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Cheque', 'NEFT', 'Credit']
@@ -53,6 +55,7 @@ export default function OPRegistrationForm({ onCreated }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(null)
+  const [showSuccess, setShowSuccess] = useState(false)
 
   useEffect(() => { api.get('/doctors').then((r) => setDoctors(r.data)).catch(() => {}) }, [])
 
@@ -86,9 +89,7 @@ export default function OPRegistrationForm({ onCreated }) {
   }
 
   const applyExistingPatient = async (patient) => {
-    // Sanitize DOB
     let dob = toYYYYMMDD(patient.dob)
-    // Compute age from DOB if possible
     let age = patient.age ?? ''
     if (dob) {
       age = calcAge(dob)
@@ -141,11 +142,21 @@ export default function OPRegistrationForm({ onCreated }) {
       setSaved(data)
       setForm(empty)
       onCreated?.()
+      setShowSuccess(true)
     } catch (err) {
       setError(err.response?.data?.error || 'Could not save registration')
     } finally {
       setSaving(false)
     }
+  }
+
+  const handlePrint = () => {
+    const doctor = doctors.find(d => String(d.id) === String(form.doctor_id))
+    const printData = {
+      ...form,
+      doctor_name: doctor ? doctor.name : '',
+    }
+    printPatientRegistration(printData, 'OP')
   }
 
   return (
@@ -283,8 +294,22 @@ export default function OPRegistrationForm({ onCreated }) {
         <button className="btn-primary flex items-center gap-2" disabled={saving}>
           <UserPlus size={15} /> {saving ? 'Saving…' : 'Register Outpatient'}
         </button>
+        <button type="button" className="btn-secondary flex items-center gap-2" onClick={handlePrint}>
+          <Printer size={15} /> Print
+        </button>
         <button type="button" className="btn-secondary" onClick={() => setForm(empty)}>Cancel</button>
       </div>
+
+      {showSuccess && (
+        <SuccessPopup
+          message={
+            saved
+              ? `Patient ${saved.first_name} ${saved.last_name} registered successfully!\nOPD No: ${saved.opd_reg_no}\nToken: ${saved.token_no}`
+              : 'Registration successful!'
+          }
+          onClose={() => setShowSuccess(false)}
+        />
+      )}
     </form>
   )
 }

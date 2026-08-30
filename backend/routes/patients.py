@@ -22,12 +22,13 @@ def create_patient():
     if not d.get("name") or not d.get("phone") or not d.get("gender"):
         return jsonify({"error": "name, phone and gender are required"}), 400
 
-    patient_uid = next_code("PT", "patients", "patient_uid")
-    reg_no = next_code("REG", "patients", "reg_no")
+    patient_uid = next_code("PT", "patients", "patient_uid")      # keep PT for MR number
+    reg_no = next_code("SGR", "patients", "reg_no")              # changed to SGR
     age = calc_age(d.get("dob"))
     user_id = get_jwt_identity()
 
-    pid = query("""
+    pid = query(
+        """
         INSERT INTO patients (
             patient_uid, reg_no, name, gender, dob, age, blood_group, weight, height,
             email, phone, alt_phone, aadhar_number, occupation, marital_status,
@@ -35,17 +36,42 @@ def create_patient():
             guardian_name, guardian_relation, guardian_phone,
             allergies, diabetes, hypertension, existing_diseases, notes, created_by
         ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-    """, (
-        patient_uid, reg_no, d.get("name"), d.get("gender"), d.get("dob"), age,
-        d.get("blood_group"), d.get("weight"), d.get("height"),
-        d.get("email"), d.get("phone"), d.get("alt_phone"), d.get("aadhar_number"),
-        d.get("occupation"), d.get("marital_status"),
-        d.get("door_no"), d.get("street"), d.get("city"), d.get("district"),
-        d.get("state"), d.get("pincode"),
-        d.get("guardian_name"), d.get("guardian_relation"), d.get("guardian_phone"),
-        d.get("allergies"), int(bool(d.get("diabetes"))), int(bool(d.get("hypertension"))),
-        d.get("existing_diseases"), d.get("notes"), user_id
-    ), fetch=False, commit=True)
+        """,
+        (
+            patient_uid,
+            reg_no,
+            d.get("name"),
+            d.get("gender"),
+            d.get("dob"),
+            age,
+            d.get("blood_group"),
+            d.get("weight"),
+            d.get("height"),
+            d.get("email"),
+            d.get("phone"),
+            d.get("alt_phone"),
+            d.get("aadhar_number"),
+            d.get("occupation"),
+            d.get("marital_status"),
+            d.get("door_no"),
+            d.get("street"),
+            d.get("city"),
+            d.get("district"),
+            d.get("state"),
+            d.get("pincode"),
+            d.get("guardian_name"),
+            d.get("guardian_relation"),
+            d.get("guardian_phone"),
+            d.get("allergies"),
+            int(bool(d.get("diabetes"))),
+            int(bool(d.get("hypertension"))),
+            d.get("existing_diseases"),
+            d.get("notes"),
+            user_id,
+        ),
+        fetch=False,
+        commit=True,
+    )
 
     log_audit(user_id, "CREATE", "Patient Registration", pid)
     patient = query("SELECT * FROM patients WHERE id=%s", (pid,))
@@ -61,12 +87,16 @@ def list_patients():
     offset = (page - 1) * limit
 
     like = f"%{search}%"
-    rows = query("""
+    rows = query(
+        """
         SELECT * FROM patients
         WHERE name LIKE %s OR phone LIKE %s OR patient_uid LIKE %s OR reg_no LIKE %s
            OR email LIKE %s
         ORDER BY id DESC LIMIT %s OFFSET %s
-    """, (like, like, like, like, like, limit, offset), many=True)
+        """,
+        (like, like, like, like, like, limit, offset),
+        many=True,
+    )
     return jsonify(rows)
 
 
@@ -82,10 +112,19 @@ def update_patient_status(patient_id):
     if not row:
         return jsonify({"error": "Patient not found"}), 404
 
-    query("UPDATE patients SET is_active=%s WHERE id=%s", (1 if is_active else 0, patient_id),
-          fetch=False, commit=True)
-    log_audit(get_jwt_identity(), "STATUS_CHANGE", "Patient", patient_id,
-              f"{'Activated' if is_active else 'Deactivated'}")
+    query(
+        "UPDATE patients SET is_active=%s WHERE id=%s",
+        (1 if is_active else 0, patient_id),
+        fetch=False,
+        commit=True,
+    )
+    log_audit(
+        get_jwt_identity(),
+        "STATUS_CHANGE",
+        "Patient",
+        patient_id,
+        f"{'Activated' if is_active else 'Deactivated'}",
+    )
     return jsonify(query("SELECT * FROM patients WHERE id=%s", (patient_id,)))
 
 
@@ -103,10 +142,32 @@ def get_patient(patient_id):
 def update_patient(patient_id):
     d = request.get_json()
     fields = [
-        "name","gender","dob","blood_group","weight","height","email","phone","alt_phone",
-        "aadhar_number","occupation","marital_status","door_no","street","city","district",
-        "state","pincode","guardian_name","guardian_relation","guardian_phone",
-        "allergies","diabetes","hypertension","existing_diseases","notes"
+        "name",
+        "gender",
+        "dob",
+        "blood_group",
+        "weight",
+        "height",
+        "email",
+        "phone",
+        "alt_phone",
+        "aadhar_number",
+        "occupation",
+        "marital_status",
+        "door_no",
+        "street",
+        "city",
+        "district",
+        "state",
+        "pincode",
+        "guardian_name",
+        "guardian_relation",
+        "guardian_phone",
+        "allergies",
+        "diabetes",
+        "hypertension",
+        "existing_diseases",
+        "notes",
     ]
     updates, params = [], []
     for f in fields:
@@ -119,6 +180,11 @@ def update_patient(patient_id):
     if not updates:
         return jsonify({"error": "No fields to update"}), 400
     params.append(patient_id)
-    query(f"UPDATE patients SET {', '.join(updates)} WHERE id=%s", tuple(params), fetch=False, commit=True)
+    query(
+        f"UPDATE patients SET {', '.join(updates)} WHERE id=%s",
+        tuple(params),
+        fetch=False,
+        commit=True,
+    )
     log_audit(get_jwt_identity(), "UPDATE", "Patient Registration", patient_id)
     return jsonify(query("SELECT * FROM patients WHERE id=%s", (patient_id,)))

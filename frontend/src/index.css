@@ -58,3 +58,14 @@ body {
 .badge-amber { @apply bg-amber-400/20 text-amber-500; }
 .badge-red { @apply bg-danger-400/20 text-danger-500; }
 .badge-gray { @apply bg-ink/10 text-ink/60; }
+/* Success Popup Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes popIn {
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-fadeIn { animation: fadeIn 0.3s ease-out; }
+.animate-popIn { animation: popIn 0.4s ease-out; }

@@ -19,11 +19,18 @@ def safe_date(v):
     """Convert any input to YYYY-MM-DD or None."""
     if not v:
         return None
-    if isinstance(v, str) and len(v) == 10 and v[4] == '-' and v[7] == '-':
+    if isinstance(v, str) and len(v) == 10 and v[4] == "-" and v[7] == "-":
         return v
     try:
         from datetime import datetime
-        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%a, %d %b %Y %H:%M:%S %Z", "%a, %d %b %Y"):
+
+        for fmt in (
+            "%Y-%m-%d",
+            "%d/%m/%Y",
+            "%m/%d/%Y",
+            "%a, %d %b %Y %H:%M:%S %Z",
+            "%a, %d %b %Y",
+        ):
             try:
                 d = datetime.strptime(v, fmt)
                 return d.date().isoformat()
@@ -31,6 +38,7 @@ def safe_date(v):
                 continue
         try:
             from dateutil import parser
+
             d = parser.parse(v)
             return d.date().isoformat()
         except:
@@ -73,35 +81,58 @@ def create_ip_registration():
 
     admitted_date = safe_date(d.get("admitted_date")) or date.today().isoformat()
 
-    existing = query("SELECT * FROM patients WHERE phone=%s ORDER BY id DESC LIMIT 1", (d["mobile"],))
+    existing = query(
+        "SELECT * FROM patients WHERE phone=%s ORDER BY id DESC LIMIT 1", (d["mobile"],)
+    )
     if existing:
         patient_id = existing["id"]
     else:
         patient_uid = next_code("PT", "patients", "patient_uid")
-        reg_no = next_code("REG", "patients", "reg_no")
-        patient_id = query("""
+        reg_no = next_code("SGR", "patients", "reg_no")
+        patient_id = query(
+            """
             INSERT INTO patients (
                 patient_uid, reg_no, name, gender, dob, age, blood_group, email, phone,
                 alt_phone, aadhar_number, occupation, marital_status, state, city, street,
                 village, mandal, district, pincode, guardian_name, guardian_relation,
                 guardian_phone, created_by
             ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-        """, (
-            patient_uid, reg_no, full_name, d.get("gender"), dob, age,
-            blank_to_none(d.get("blood_group")), blank_to_none(d.get("email")), d.get("mobile"),
-            blank_to_none(d.get("alt_phone")), blank_to_none(d.get("aadhar_number")),
-            blank_to_none(d.get("occupation")), blank_to_none(d.get("marital_status")),
-            blank_to_none(d.get("state")), blank_to_none(d.get("city")),
-            blank_to_none(d.get("street_address")), village, mandal, district,
-            blank_to_none(d.get("pincode")),
-            blank_to_none(d.get("guardian_name")), blank_to_none(d.get("guardian_relation")),
-            blank_to_none(d.get("guardian_mobile")), user_id
-        ), fetch=False, commit=True)
+            """,
+            (
+                patient_uid,
+                reg_no,
+                full_name,
+                d.get("gender"),
+                dob,
+                age,
+                blank_to_none(d.get("blood_group")),
+                blank_to_none(d.get("email")),
+                d.get("mobile"),
+                blank_to_none(d.get("alt_phone")),
+                blank_to_none(d.get("aadhar_number")),
+                blank_to_none(d.get("occupation")),
+                blank_to_none(d.get("marital_status")),
+                blank_to_none(d.get("state")),
+                blank_to_none(d.get("city")),
+                blank_to_none(d.get("street_address")),
+                village,
+                mandal,
+                district,
+                blank_to_none(d.get("pincode")),
+                blank_to_none(d.get("guardian_name")),
+                blank_to_none(d.get("guardian_relation")),
+                blank_to_none(d.get("guardian_mobile")),
+                user_id,
+            ),
+            fetch=False,
+            commit=True,
+        )
 
-    ip_reg_no = next_code("IPR", "ip_registrations", "ip_reg_no")
+    ip_reg_no = next_code("IP", "ip_registrations", "ip_reg_no")  # changed from IPR
 
     # Correct INSERT – exactly 42 placeholders, aligned with columns
-    rid = query("""
+    rid = query(
+        """
         INSERT INTO ip_registrations (
             patient_id, ip_reg_no, opd_reg_no, title, first_name, last_name, gender, age, dob,
             marital_status, blood_group, aadhar_number, mobile, alt_phone, occupation, email,
@@ -121,34 +152,66 @@ def create_ip_registration():
             %s, %s, %s, %s,
             %s, %s
         )
-    """, (
-        patient_id, ip_reg_no, blank_to_none(d.get("opd_reg_no")), blank_to_none(d.get("title")),
-        d.get("first_name"), blank_to_none(d.get("last_name")), d.get("gender"), age, dob,
-        blank_to_none(d.get("marital_status")), blank_to_none(d.get("blood_group")),
-        blank_to_none(d.get("aadhar_number")), d.get("mobile"), blank_to_none(d.get("alt_phone")),
-        blank_to_none(d.get("occupation")), blank_to_none(d.get("email")),
-        blank_to_none(d.get("state")), blank_to_none(d.get("city")), blank_to_none(d.get("locality")),
-        blank_to_none(d.get("street_address")), village, mandal, district,
-        blank_to_none(d.get("pincode")),
-        blank_to_none(d.get("guardian_name")), blank_to_none(d.get("guardian_relation")),
-        blank_to_none(d.get("guardian_mobile")), blank_to_none(d.get("mother_name")),
-        blank_to_none(d.get("doctor_id")), blank_to_none(d.get("symptoms")),
-        blank_to_none(d.get("floor")), d.get("room_type", "General"),
-        blank_to_none(d.get("room_no")), blank_to_none(d.get("bed_no")),
-        d.get("referral_type", "Walkin"), blank_to_none(d.get("referral_doctor_name")),
-        d.get("payment_mode", "Cash"), d.get("advance_amount", 0) or 0,
-        d.get("booking_type", "Walk-in"), blank_to_none(d.get("abha_number")),
-        admitted_date, user_id
-    ), fetch=False, commit=True)
+        """,
+        (
+            patient_id,
+            ip_reg_no,
+            blank_to_none(d.get("opd_reg_no")),
+            blank_to_none(d.get("title")),
+            d.get("first_name"),
+            blank_to_none(d.get("last_name")),
+            d.get("gender"),
+            age,
+            dob,
+            blank_to_none(d.get("marital_status")),
+            blank_to_none(d.get("blood_group")),
+            blank_to_none(d.get("aadhar_number")),
+            d.get("mobile"),
+            blank_to_none(d.get("alt_phone")),
+            blank_to_none(d.get("occupation")),
+            blank_to_none(d.get("email")),
+            blank_to_none(d.get("state")),
+            blank_to_none(d.get("city")),
+            blank_to_none(d.get("locality")),
+            blank_to_none(d.get("street_address")),
+            village,
+            mandal,
+            district,
+            blank_to_none(d.get("pincode")),
+            blank_to_none(d.get("guardian_name")),
+            blank_to_none(d.get("guardian_relation")),
+            blank_to_none(d.get("guardian_mobile")),
+            blank_to_none(d.get("mother_name")),
+            blank_to_none(d.get("doctor_id")),
+            blank_to_none(d.get("symptoms")),
+            blank_to_none(d.get("floor")),
+            d.get("room_type", "General"),
+            blank_to_none(d.get("room_no")),
+            blank_to_none(d.get("bed_no")),
+            d.get("referral_type", "Walkin"),
+            blank_to_none(d.get("referral_doctor_name")),
+            d.get("payment_mode", "Cash"),
+            d.get("advance_amount", 0) or 0,
+            d.get("booking_type", "Walk-in"),
+            blank_to_none(d.get("abha_number")),
+            admitted_date,
+            user_id,
+        ),
+        fetch=False,
+        commit=True,
+    )
 
     log_audit(user_id, "CREATE", "IP Registration", rid)
-    row = query("""
+    row = query(
+        """
         SELECT r.*, p.patient_uid AS mr_number, p.reg_no AS patient_reg_no, doc.name AS doctor_name
         FROM ip_registrations r
         JOIN patients p ON p.id = r.patient_id
         LEFT JOIN doctors doc ON doc.id = r.doctor_id
         WHERE r.id=%s
-    """, (rid,))
+        """,
+        (rid,),
+    )
     return jsonify(row), 201
 
 
@@ -160,7 +223,7 @@ def create_ip_registration():
 def list_ip_registrations():
     search = request.args.get("search", "")
     status = request.args.get("status")
-    patient_id = request.args.get("patient_id")          # NEW: filter by patient ID
+    patient_id = request.args.get("patient_id")  # NEW: filter by patient ID
     like = f"%{search}%"
 
     sql = """
@@ -206,15 +269,25 @@ def request_transfer(reg_id):
     if not row:
         return jsonify({"error": "Admission not found"}), 404
 
-    query("""
+    query(
+        """
         UPDATE ip_registrations
         SET requested_room_no=%s, requested_bed_no=%s,
             room_transfer_status='Requested', transfer_requested_at=NOW()
         WHERE id=%s
-    """, (room_no, blank_to_none(bed_no), reg_id), fetch=False, commit=True)
+        """,
+        (room_no, blank_to_none(bed_no), reg_id),
+        fetch=False,
+        commit=True,
+    )
 
-    log_audit(get_jwt_identity(), "TRANSFER_REQUEST", "IP Registration", reg_id,
-              f"Requested move to {room_no}/{bed_no}")
+    log_audit(
+        get_jwt_identity(),
+        "TRANSFER_REQUEST",
+        "IP Registration",
+        reg_id,
+        f"Requested move to {room_no}/{bed_no}",
+    )
     return jsonify(query("SELECT * FROM ip_registrations WHERE id=%s", (reg_id,)))
 
 
@@ -228,15 +301,26 @@ def approve_transfer(reg_id):
     if row["room_transfer_status"] != "Requested":
         return jsonify({"error": "No pending transfer request for this admission"}), 400
 
-    query("""
+    query(
+        """
         UPDATE ip_registrations
         SET room_no=requested_room_no, bed_no=requested_bed_no,
             requested_room_no=NULL, requested_bed_no=NULL,
             room_transfer_status='Transferred'
         WHERE id=%s
-    """, (reg_id,), fetch=False, commit=True)
+        """,
+        (reg_id,),
+        fetch=False,
+        commit=True,
+    )
 
-    log_audit(get_jwt_identity(), "TRANSFER_APPROVE", "IP Registration", reg_id, "Transfer approved")
+    log_audit(
+        get_jwt_identity(),
+        "TRANSFER_APPROVE",
+        "IP Registration",
+        reg_id,
+        "Transfer approved",
+    )
     return jsonify(query("SELECT * FROM ip_registrations WHERE id=%s", (reg_id,)))
 
 
@@ -250,20 +334,32 @@ def reject_transfer(reg_id):
     if row["room_transfer_status"] != "Requested":
         return jsonify({"error": "No pending transfer request for this admission"}), 400
 
-    query("""
+    query(
+        """
         UPDATE ip_registrations
         SET requested_room_no=NULL, requested_bed_no=NULL, room_transfer_status='None'
         WHERE id=%s
-    """, (reg_id,), fetch=False, commit=True)
+        """,
+        (reg_id,),
+        fetch=False,
+        commit=True,
+    )
 
-    log_audit(get_jwt_identity(), "TRANSFER_REJECT", "IP Registration", reg_id, "Transfer rejected")
+    log_audit(
+        get_jwt_identity(),
+        "TRANSFER_REJECT",
+        "IP Registration",
+        reg_id,
+        "Transfer rejected",
+    )
     return jsonify(query("SELECT * FROM ip_registrations WHERE id=%s", (reg_id,)))
 
 
 @ip_reg_bp.route("/transfer-requests", methods=["GET"])
 @jwt_required()
 def list_transfer_requests():
-    rows = query("""
+    rows = query(
+        """
         SELECT r.id, p.patient_uid AS mr_number, p.reg_no AS patient_reg_no,
                CONCAT(r.first_name,' ',IFNULL(r.last_name,'')) AS name,
                r.room_type AS from_room_type, r.room_no AS from_room_no, r.bed_no AS from_bed_no,
@@ -273,27 +369,33 @@ def list_transfer_requests():
         JOIN patients p ON p.id = r.patient_id
         WHERE r.room_transfer_status = 'Requested'
         ORDER BY r.transfer_requested_at DESC
-    """, many=True)
+        """,
+        many=True,
+    )
     return jsonify(rows)
 
 
 @ip_reg_bp.route("/patient/<int:patient_id>/last", methods=["GET"])
 @jwt_required()
 def get_last_ip_registration(patient_id):
-    row = query("""
+    row = query(
+        """
         SELECT r.*, doc.name AS doctor_name
         FROM ip_registrations r
         LEFT JOIN doctors doc ON doc.id = r.doctor_id
         WHERE r.patient_id = %s
         ORDER BY r.created_at DESC LIMIT 1
-    """, (patient_id,))
+        """,
+        (patient_id,),
+    )
     return jsonify(row) if row else jsonify(None), 200
 
 
 @ip_reg_bp.route("/<int:reg_id>", methods=["GET"])
 @jwt_required()
 def get_ip_registration(reg_id):
-    row = query("""
+    row = query(
+        """
         SELECT r.*, p.patient_uid AS mr_number, p.reg_no AS patient_reg_no,
                CONCAT(r.first_name, ' ', IFNULL(r.last_name, '')) AS name,
                d.name AS doctor_name,
@@ -303,7 +405,9 @@ def get_ip_registration(reg_id):
         LEFT JOIN doctors d ON d.id = r.doctor_id
         LEFT JOIN departments dept ON dept.id = d.department_id
         WHERE r.id=%s
-    """, (reg_id,))
+        """,
+        (reg_id,),
+    )
     if not row:
         return jsonify({"error": "IP registration not found"}), 404
     return jsonify(row), 200

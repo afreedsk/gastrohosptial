@@ -54,6 +54,11 @@ import StockAdjustments from './pages/pharmacy/StockAdjustments'
 import SupplierMaster from './pages/pharmacy/SupplierMaster'
 import DoctorMaster from './pages/superadmin/DoctorMaster'
 import PermissionProfiles from './pages/superadmin/PermissionProfiles'
+import LabLayout from './components/lab/LabLayout'
+import LabDashboard from './pages/lab/Dashboard'
+import OPReports from './pages/lab/OPReports'
+import IPReports from './pages/lab/IPReports'
+import LabTests from './pages/superadmin/LabTests'
 function withLayout(el) {
   return <Layout>{el}</Layout>
 }
@@ -276,6 +281,23 @@ export default function App() {
 } />
 <Route path="/superadmin/permission-profiles" element={
   <ProtectedRoute roles={['super_admin']}>{withLayout(<PermissionProfiles />)}</ProtectedRoute>
+} />
+
+{/* Lab Technician Routes */}
+<Route path="/lab" element={<LabLayout />}>
+  <Route index element={<Navigate to="/lab/dashboard" replace />} />
+  <Route path="dashboard" element={
+    <ProtectedRoute roles={['lab_technician', 'super_admin', 'admin']}><LabDashboard /></ProtectedRoute>
+  } />
+  <Route path="op-reports" element={
+    <ProtectedRoute roles={['lab_technician', 'super_admin', 'admin']}><OPReports /></ProtectedRoute>
+  } />
+  <Route path="ip-reports" element={
+    <ProtectedRoute roles={['lab_technician', 'super_admin', 'admin']}><IPReports /></ProtectedRoute>
+  } />
+</Route>
+<Route path="/superadmin/lab-tests" element={
+  <ProtectedRoute roles={['super_admin']}>{withLayout(<LabTests />)}</ProtectedRoute>
 } />
 
         {/* Placeholders */}
