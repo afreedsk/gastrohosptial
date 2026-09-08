@@ -59,6 +59,7 @@ import LabDashboard from './pages/lab/Dashboard'
 import OPReports from './pages/lab/OPReports'
 import IPReports from './pages/lab/IPReports'
 import LabTests from './pages/superadmin/LabTests'
+import BulkImport from './pages/superadmin/BulkImport'
 function withLayout(el) {
   return <Layout>{el}</Layout>
 }
@@ -298,6 +299,9 @@ export default function App() {
 </Route>
 <Route path="/superadmin/lab-tests" element={
   <ProtectedRoute roles={['super_admin']}>{withLayout(<LabTests />)}</ProtectedRoute>
+} />
+<Route path="/superadmin/bulk-import" element={
+  <ProtectedRoute roles={['super_admin']}>{withLayout(<BulkImport />)}</ProtectedRoute>
 } />
 
         {/* Placeholders */}

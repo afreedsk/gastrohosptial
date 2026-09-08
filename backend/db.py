@@ -13,11 +13,6 @@ try:
         database=Config.DB_NAME,
     )
 except mysql.connector.Error as e:
-    # This crashes on startup with a clear message instead of failing silently
-    # later on every request with a generic 500. Most common causes:
-    #  - MySQL isn't running
-    #  - DB_USER / DB_PASSWORD in .env don't match your MySQL account
-    #  - DB_NAME ("hms_db" by default) hasn't been created yet -> run db.sql first
     print("\n[DB CONNECTION FAILED]", e, file=sys.stderr)
     print("Check backend/.env (DB_HOST, DB_USER, DB_PASSWORD, DB_NAME) "
           "and confirm you ran: mysql -u root -p < backend/db.sql\n", file=sys.stderr)
@@ -43,7 +38,6 @@ def query(sql, params=None, fetch=True, many=False, commit=False):
         return result
     except mysql.connector.Error as e:
         conn.rollback()
-        # Re-raise with the SQL attached so it shows up in the Flask terminal
         print(f"\n[DB QUERY FAILED] {e}\nSQL: {sql}\nParams: {params}\n", file=sys.stderr)
         raise
     finally:

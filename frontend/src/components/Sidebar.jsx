@@ -97,6 +97,7 @@ const NAV_TREE = [
       { label: 'File Upload', to: '/superadmin/file-upload' },
       { label: 'Services', to: '/superadmin/services' },
       { label: 'Certificates', to: '/superadmin/certificates' },
+      { label: 'Bulk Import/Export', to: '/superadmin/bulk-import' },
       { label: 'Master Refund Request Reason', to: '/superadmin/refund-reasons' },
     ],
   },
