@@ -1,27 +1,15 @@
 import sys
 import mysql.connector
-from mysql.connector import pooling
 from config import Config
 
-try:
-    pool = pooling.MySQLConnectionPool(
-        pool_name="hms_pool",
-        pool_size=10,
+def get_db():
+    """Create a new database connection (no pooling)."""
+    return mysql.connector.connect(
         host=Config.DB_HOST,
         user=Config.DB_USER,
         password=Config.DB_PASSWORD,
         database=Config.DB_NAME,
     )
-except mysql.connector.Error as e:
-    print("\n[DB CONNECTION FAILED]", e, file=sys.stderr)
-    print("Check backend/.env (DB_HOST, DB_USER, DB_PASSWORD, DB_NAME) "
-          "and confirm you ran: mysql -u root -p < backend/db.sql\n", file=sys.stderr)
-    raise
-
-
-def get_db():
-    return pool.get_connection()
-
 
 def query(sql, params=None, fetch=True, many=False, commit=False):
     """Run a query and return dict rows. Handles insert/update with commit."""
@@ -42,4 +30,4 @@ def query(sql, params=None, fetch=True, many=False, commit=False):
         raise
     finally:
         cur.close()
-        conn.close()
+        conn.close()   # always close the connection
