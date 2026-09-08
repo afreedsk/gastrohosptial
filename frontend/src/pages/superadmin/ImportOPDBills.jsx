@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import api from "../../api/axios";
 
-export default function ImportOPDBills() {
+export default function ImportBills({ importType, label }) {
   const [file, setFile] = useState(null);
   const [batchId, setBatchId] = useState(null);
   const [status, setStatus] = useState(null);
@@ -14,6 +14,7 @@ export default function ImportOPDBills() {
     setUploading(true);
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("import_type", importType);
 
     try {
       const res = await api.post("/superadmin/import/upload", formData, {
@@ -31,7 +32,6 @@ export default function ImportOPDBills() {
 
   useEffect(() => {
     if (!batchId) return;
-
     pollRef.current = setInterval(async () => {
       const res = await api.get(`/superadmin/import/status/${batchId}`);
       setStatus(res.data);
@@ -43,7 +43,6 @@ export default function ImportOPDBills() {
         }
       }
     }, 1500);
-
     return () => clearInterval(pollRef.current);
   }, [batchId]);
 
@@ -53,11 +52,8 @@ export default function ImportOPDBills() {
 
   return (
     <div style={{ maxWidth: 550 }}>
-      <input
-        type="file"
-        accept=".csv,.xlsx,.xls"
-        onChange={(e) => setFile(e.target.files[0])}
-      />
+      <p style={{ fontWeight: 600, marginBottom: 8 }}>{label}</p>
+      <input type="file" accept=".csv,.xlsx,.xls" onChange={(e) => setFile(e.target.files[0])} />
       <button onClick={handleUpload} disabled={!file || uploading} style={{ marginLeft: 10 }}>
         {uploading ? "Uploading..." : "Upload & Import"}
       </button>
@@ -80,9 +76,7 @@ export default function ImportOPDBills() {
         <div style={{ marginTop: 20, maxHeight: 250, overflowY: "auto", border: "1px solid #ccc", padding: 10 }}>
           <b>Errors ({errorList.length}):</b>
           <ul>
-            {errorList.map((e, i) => (
-              <li key={i}>Row {e.row_no}: {e.error_message}</li>
-            ))}
+            {errorList.map((e, i) => <li key={i}>Row {e.row_no}: {e.error_message}</li>)}
           </ul>
         </div>
       )}

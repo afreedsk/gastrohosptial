@@ -5,11 +5,17 @@ from flask import Blueprint, request, jsonify, send_file
 from flask_jwt_extended import jwt_required, get_jwt
 from db import get_db, query
 from routes.import_service import start_import_job
+from routes.import_service_lab import start_lab_import_job
 
 bulk_import_bp = Blueprint("bulk_import", __name__)
 
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+IMPORT_HANDLERS = {
+    "opd_bills": start_import_job,
+    "lab_bills": start_lab_import_job,
+}
 
 
 def require_super_admin():
@@ -24,20 +30,24 @@ def upload():
         return jsonify({"error": "Forbidden"}), 403
 
     file = request.files.get("file")
+    import_type = request.form.get("import_type", "opd_bills")
+
     if not file:
         return jsonify({"error": "No file uploaded"}), 400
     if not file.filename.lower().endswith((".csv", ".xlsx", ".xls")):
         return jsonify({"error": "Only CSV/Excel files allowed"}), 400
+    if import_type not in IMPORT_HANDLERS:
+        return jsonify({"error": f"Unknown import_type: {import_type}"}), 400
 
     filepath = os.path.join(UPLOAD_DIR, file.filename)
     file.save(filepath)
 
     batch_id = query(
-        "INSERT INTO import_batches (filename, status) VALUES (%s, 'Queued')",
-        (file.filename,), fetch=False, commit=True
+        "INSERT INTO import_batches (filename, import_type, status) VALUES (%s, %s, 'Queued')",
+        (file.filename, import_type), fetch=False, commit=True
     )
 
-    start_import_job(batch_id, filepath)
+    IMPORT_HANDLERS[import_type](batch_id, filepath)
 
     return jsonify({"batch_id": batch_id, "message": "Import started"}), 202
 
@@ -75,9 +85,9 @@ def export_op_bills():
 
     sql = """
         SELECT b.bill_no, p.patient_uid AS mr_number, r.opd_reg_no, p.name AS patient_name,
-               p.phone, r.area, d.name AS doctor_name, b.cash_amount, b.card_amount,
-               b.upi_amount, b.bank_amount, b.net_total AS total, b.payment_mode,
-               b.service_summary, b.created_at
+               p.phone, r.area, d.name AS doctor_name, b.cash_amount, b.lab_charge,
+               b.gross_total, b.discount, b.net_total, b.paid_amount, b.due_amount,
+               b.payment_mode, b.remarks, b.created_at
         FROM op_bills b
         JOIN patients p ON p.id = b.patient_id
         LEFT JOIN op_registrations r ON r.patient_id = p.id
