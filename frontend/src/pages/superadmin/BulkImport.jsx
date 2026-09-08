@@ -5,6 +5,7 @@ import ExportOPDBills from "./ExportOPDBills";
 const TABS = [
   { key: "opd", label: "Import OPD Bills" },
   { key: "lab", label: "Import Lab Bills" },
+  { key: "radiology", label: "Import Radiology Bills" },
   { key: "export", label: "Export OPD Bills" },
 ];
 
@@ -32,6 +33,7 @@ export default function BulkImport() {
 
       {tab === "opd" && <ImportBills importType="opd_bills" label="Import OPD consultation billing CSV/Excel" />}
       {tab === "lab" && <ImportBills importType="lab_bills" label="Import Lab investigation billing CSV/Excel" />}
+      {tab === "radiology" && <ImportBills importType="radiology_bills" label="Import Radiology investigation billing CSV/Excel" />}
       {tab === "export" && <ExportOPDBills />}
     </div>
   );

@@ -6,6 +6,7 @@ from flask_jwt_extended import jwt_required, get_jwt
 from db import get_db, query
 from routes.import_service import start_import_job
 from routes.import_service_lab import start_lab_import_job
+from routes.import_service_radiology import start_radiology_import_job
 
 bulk_import_bp = Blueprint("bulk_import", __name__)
 
@@ -15,6 +16,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 IMPORT_HANDLERS = {
     "opd_bills": start_import_job,
     "lab_bills": start_lab_import_job,
+    "radiology_bills": start_radiology_import_job,
 }
 
 
@@ -86,8 +88,8 @@ def export_op_bills():
     sql = """
         SELECT b.bill_no, p.patient_uid AS mr_number, r.opd_reg_no, p.name AS patient_name,
                p.phone, r.area, d.name AS doctor_name, b.cash_amount, b.lab_charge,
-               b.gross_total, b.discount, b.net_total, b.paid_amount, b.due_amount,
-               b.payment_mode, b.remarks, b.created_at
+               b.radiology_charge, b.gross_total, b.discount, b.net_total, b.paid_amount,
+               b.due_amount, b.payment_mode, b.remarks, b.created_at
         FROM op_bills b
         JOIN patients p ON p.id = b.patient_id
         LEFT JOIN op_registrations r ON r.patient_id = p.id
