@@ -49,6 +49,7 @@ DEBUG = os.getenv("FLASK_ENV", "development") == "development"
 
 def create_app():
     app = Flask(__name__)
+    app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024   # 50 MB
     app.config["JWT_SECRET_KEY"] = Config.JWT_SECRET_KEY
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=8)
     app.config["DEBUG"] = DEBUG
