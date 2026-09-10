@@ -68,22 +68,35 @@ def upsert_lab_bill(cur, invoice_no, patient_id, total_amount, discount, due_dis
     return cur.lastrowid, True
 
 
-def insert_lab_items(cur, op_registration_id, investigations_text, rate_map):
-    """Splits the comma-separated investigations string into op_lab line items."""
+def insert_lab_items(cur, op_registration_id, investigations_text, rate_map, bill_date):
+    """Splits the comma-separated investigations string into op_lab line items.
+
+    bill_date is passed through and written into created_at explicitly.
+    Without this, MySQL's DEFAULT CURRENT_TIMESTAMP stamps every line item
+    with the moment the import script ran, not the real bill date — which
+    breaks any date-range filtering on these rows.
+    """
     if not investigations_text:
         return
     names = [n.strip() for n in investigations_text.split(",") if n.strip()]
     for name in names:
         rate = lookup_rate(rate_map, name)
         cur.execute("""
-            INSERT INTO op_lab (op_registration_id, item_name, quantity, rate, amount)
-            VALUES (%s, %s, 1, %s, %s)
-        """, (op_registration_id, name, rate, rate))
+            INSERT INTO op_lab (op_registration_id, item_name, quantity, rate, amount, created_at)
+            VALUES (%s, %s, 1, %s, %s, %s)
+        """, (op_registration_id, name, rate, rate, bill_date))
 
 
 def process_lab_batch(batch_id, filepath):
     conn = get_db()
-    cur = conn.cursor(dictionary=True)
+    # IMPORTANT: buffered=True. Without it, mysql-connector-python's C extension
+    # cursor can leave a SELECT's result set only partially "acknowledged" as
+    # drained even after fetchone() returns the row you wanted. The next
+    # cur.execute() call then raises:
+    #   mysql.connector.errors.InternalError: Unread result found
+    # Buffered cursors read the entire result set into memory immediately on
+    # execute(), so there is never anything left "unread" between queries.
+    cur = conn.cursor(dictionary=True, buffered=True)
 
     try:
         cur.execute("UPDATE import_batches SET status='Processing' WHERE id=%s", (batch_id,))
@@ -138,7 +151,7 @@ def process_lab_batch(batch_id, filepath):
                 )
 
                 if was_inserted:
-                    insert_lab_items(cur, op_reg_id, row.get("investigations"), rate_map)
+                    insert_lab_items(cur, op_reg_id, row.get("investigations"), rate_map, bill_date)
 
                 conn.commit()
                 inserted += 1 if was_inserted else 0
@@ -147,11 +160,16 @@ def process_lab_batch(batch_id, filepath):
             except Exception as e:
                 conn.rollback()
                 failed += 1
-                cur.execute("""
-                    INSERT INTO import_errors (batch_id, row_no, error_message, raw_data)
-                    VALUES (%s, %s, %s, %s)
-                """, (batch_id, row_num, str(e), safe_json_dump(row.to_dict())))
-                conn.commit()
+                # Guard the error-logging insert itself: if THIS insert fails,
+                # it must never be allowed to kill the whole batch thread.
+                try:
+                    cur.execute("""
+                        INSERT INTO import_errors (batch_id, row_no, error_message, raw_data)
+                        VALUES (%s, %s, %s, %s)
+                    """, (batch_id, row_num, str(e), safe_json_dump(row.to_dict())))
+                    conn.commit()
+                except Exception:
+                    conn.rollback()
 
             processed += 1
             if processed % 100 == 0 or processed == total_rows:

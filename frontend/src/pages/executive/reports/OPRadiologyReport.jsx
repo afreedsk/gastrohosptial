@@ -5,7 +5,9 @@ import ReportListPage from '../../../components/reports/ReportListPage'
 // Expected row shape from GET /reports/op-radiology?start_date&end_date:
 // {
 //   id, mr_number, patient_reg_no, patient_id, name, contact, age, gender,
-//   doctor_name, appointment_at
+//   doctor_name, appointment_at,
+//   items: [{ item_name, quantity, rate, amount }, ...],
+//   item_total
 // }
 export default function OPRadiologyReport() {
   const columns = [
@@ -25,6 +27,22 @@ export default function OPRadiologyReport() {
     { key: 'age', label: 'Age' },
     { key: 'doctor_name', label: 'Doctor' },
     { key: 'appointment_at', label: 'Appointment At' },
+    {
+      key: 'items',
+      label: 'Investigations',
+      render: (row) => (
+        <div className="space-y-0.5">
+          {(row.items ?? []).map((it, i) => (
+            <div key={i}>{it.item_name}</div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      key: 'item_total',
+      label: 'Amount',
+      render: (row) => `₹${Number(row.item_total || 0).toFixed(2)}`,
+    },
   ]
 
   const rowActions = (row) => [

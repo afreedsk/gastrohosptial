@@ -1,24 +1,55 @@
 from datetime import date, datetime
+import json
+
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
+
 from db import query
 
 dashboard_bp = Blueprint("dashboard", __name__)
 
 
+# ---------------------------------------------------------------------------
+# TOP SUMMARY
+# ---------------------------------------------------------------------------
 @dashboard_bp.route("/summary", methods=["GET"])
 @jwt_required()
 def summary():
-    registrations = query("SELECT COUNT(*) c FROM patients WHERE DATE(created_at)=CURDATE()")["c"]
-    appointments = query("SELECT COUNT(*) c FROM appointments WHERE appointment_date=CURDATE()")["c"]
-    op_patients = query("SELECT COUNT(DISTINCT patient_id) c FROM op_bills WHERE DATE(created_at)=CURDATE()")["c"]
-    ip_admissions = query("SELECT COUNT(*) c FROM admissions WHERE admission_date=CURDATE()")["c"]
-    pending_bills = query("SELECT COUNT(*) c FROM op_bills WHERE status IN ('Due','Partial')")["c"] + \
-        query("SELECT COUNT(*) c FROM ip_bills WHERE status IN ('Due','Partial','Draft')")["c"]
-    revenue = (query("SELECT IFNULL(SUM(paid_amount),0) s FROM op_bills WHERE DATE(created_at)=CURDATE()")["s"] or 0) + \
-        (query("SELECT IFNULL(SUM(paid_amount),0) s FROM ip_bills WHERE DATE(created_at)=CURDATE()")["s"] or 0)
-    cancelled_bills = query("SELECT COUNT(*) c FROM op_bills WHERE status='Cancelled' AND DATE(created_at)=CURDATE()")["c"] + \
-        query("SELECT COUNT(*) c FROM ip_bills WHERE status='Cancelled' AND DATE(created_at)=CURDATE()")["c"]
+    registrations = query(
+        "SELECT COUNT(*) c FROM patients WHERE DATE(created_at)=CURDATE()"
+    )["c"]
+    appointments = query(
+        "SELECT COUNT(*) c FROM appointments WHERE appointment_date=CURDATE()"
+    )["c"]
+    op_patients = query(
+        "SELECT COUNT(DISTINCT patient_id) c FROM op_bills WHERE DATE(created_at)=CURDATE()"
+    )["c"]
+    ip_admissions = query(
+        "SELECT COUNT(*) c FROM admissions WHERE admission_date=CURDATE()"
+    )["c"]
+    pending_bills = (
+        query("SELECT COUNT(*) c FROM op_bills WHERE status IN ('Due','Partial')")["c"]
+        + query(
+            "SELECT COUNT(*) c FROM ip_bills WHERE status IN ('Due','Partial','Draft')"
+        )["c"]
+    )
+    revenue = (
+        query(
+            "SELECT IFNULL(SUM(paid_amount),0) s FROM op_bills WHERE DATE(created_at)=CURDATE()"
+        )["s"] or 0
+    ) + (
+        query(
+            "SELECT IFNULL(SUM(paid_amount),0) s FROM ip_bills WHERE DATE(created_at)=CURDATE()"
+        )["s"] or 0
+    )
+    cancelled_bills = (
+        query(
+            "SELECT COUNT(*) c FROM op_bills WHERE status='Cancelled' AND DATE(created_at)=CURDATE()"
+        )["c"]
+        + query(
+            "SELECT COUNT(*) c FROM ip_bills WHERE status='Cancelled' AND DATE(created_at)=CURDATE()"
+        )["c"]
+    )
     pending_labs = query("SELECT COUNT(*) c FROM lab_tests WHERE status='Pending'")["c"]
 
     return jsonify({
@@ -33,6 +64,9 @@ def summary():
     })
 
 
+# ---------------------------------------------------------------------------
+# CHARTS
+# ---------------------------------------------------------------------------
 @dashboard_bp.route("/charts/patients-per-day", methods=["GET"])
 @jwt_required()
 def patients_per_day():
@@ -54,10 +88,10 @@ def revenue_chart():
             FROM (SELECT 0 n UNION SELECT 1 UNION SELECT 2 UNION SELECT 3
                   UNION SELECT 4 UNION SELECT 5 UNION SELECT 6) days
         ) d
-        LEFT JOIN (SELECT DATE(created_at) day, SUM(paid_amount) total FROM op_bills GROUP BY DATE(created_at)) op
-            ON op.day = d.day
-        LEFT JOIN (SELECT DATE(created_at) day, SUM(paid_amount) total FROM ip_bills GROUP BY DATE(created_at)) ip
-            ON ip.day = d.day
+        LEFT JOIN (SELECT DATE(created_at) day, SUM(paid_amount) total
+                   FROM op_bills GROUP BY DATE(created_at)) op ON op.day = d.day
+        LEFT JOIN (SELECT DATE(created_at) day, SUM(paid_amount) total
+                   FROM ip_bills GROUP BY DATE(created_at)) ip ON ip.day = d.day
         ORDER BY d.day
     """, many=True)
     return jsonify(rows)
@@ -66,8 +100,12 @@ def revenue_chart():
 @dashboard_bp.route("/charts/op-vs-ip", methods=["GET"])
 @jwt_required()
 def op_vs_ip():
-    op = query("SELECT COUNT(*) c FROM op_bills WHERE DATE(created_at) >= CURDATE() - INTERVAL 6 DAY")["c"]
-    ip = query("SELECT COUNT(*) c FROM ip_bills WHERE DATE(created_at) >= CURDATE() - INTERVAL 6 DAY")["c"]
+    op = query(
+        "SELECT COUNT(*) c FROM op_bills WHERE DATE(created_at) >= CURDATE() - INTERVAL 6 DAY"
+    )["c"]
+    ip = query(
+        "SELECT COUNT(*) c FROM ip_bills WHERE DATE(created_at) >= CURDATE() - INTERVAL 6 DAY"
+    )["c"]
     return jsonify([{"name": "OP", "value": op}, {"name": "IP", "value": ip}])
 
 
@@ -77,143 +115,307 @@ def department_collection():
     rows = query("""
         SELECT dep.name AS department, IFNULL(SUM(a.consultation_fee),0) AS collection
         FROM departments dep
-        LEFT JOIN appointments a ON a.department_id = dep.id AND a.status='Completed'
+        LEFT JOIN appointments a
+               ON a.department_id = dep.id AND a.status='Completed'
         GROUP BY dep.id
     """, many=True)
     return jsonify(rows)
 
 
+# ---------------------------------------------------------------------------
+# HELPERS
+# ---------------------------------------------------------------------------
 def _empty_bucket():
     return {"cash": 0.0, "card": 0.0, "upi": 0.0, "bank": 0.0, "total": 0.0}
 
 
 def _mode_key(mode):
-    if mode == "Cash":
+    if not mode:
         return "cash"
-    if mode == "Card":
+    m = str(mode).strip().lower()
+    if m == "cash":
+        return "cash"
+    if m == "card":
         return "card"
-    if mode == "UPI":
+    if m == "upi":
         return "upi"
-    return "bank"  # NEFT, Cheque, Credit, Insurance all fall under "bank"
+    return "bank"  # Bank, NEFT, Cheque, Credit, Insurance
 
 
 def _add(bucket, mode, amount):
-    if not amount:
+    try:
+        amt = float(amount or 0)
+    except (TypeError, ValueError):
         return
-    k = _mode_key(mode)
-    bucket[k] += float(amount)
-    bucket["total"] += float(amount)
+    if amt == 0:
+        return
+    bucket[_mode_key(mode)] += amt
+    bucket["total"] += amt
 
 
+def _parse_split(raw):
+    if not raw:
+        return None
+    if isinstance(raw, dict):
+        return {str(k): float(v or 0) for k, v in raw.items()}
+    if isinstance(raw, (str, bytes, bytearray)):
+        try:
+            data = json.loads(raw)
+        except Exception:
+            return None
+        if isinstance(data, dict):
+            return {str(k): float(v or 0) for k, v in data.items()}
+    return None
+
+
+def _iter_paid_splits(paid_amount, single_mode, split_json):
+    if paid_amount <= 0:
+        return
+    split = _parse_split(split_json)
+    if split:
+        total = sum(split.values())
+        if total > 0:
+            scale = paid_amount / total
+            for mode, amt in split.items():
+                if amt > 0:
+                    yield mode, amt * scale
+            return
+    yield single_mode, paid_amount
+
+
+def _distribute(paid_amount, single_mode, split_json, parts, bucket_map):
+    if paid_amount <= 0:
+        return
+    splits = list(_iter_paid_splits(paid_amount, single_mode, split_json))
+    if not splits:
+        return
+
+    total_parts = sum(float(v or 0) for v in parts.values())
+
+    if total_parts <= 0:
+        for k in parts:
+            bucket = bucket_map.get(k)
+            if bucket is not None:
+                for mode, amt in splits:
+                    _add(bucket, mode, amt)
+                return
+        return
+
+    for target_key, part_amt in parts.items():
+        if not part_amt:
+            continue
+        bucket = bucket_map.get(target_key)
+        if bucket is None:
+            continue
+        for mode, amt in splits:
+            _add(bucket, mode, amt * (float(part_amt) / total_parts))
+
+
+def _classify_op_bill(bill_no, appointment_id, consult_charge, lab, radiology, proc):
+    """
+    Return one of: 'op', 'direct', 'op_radiology', 'ip_diagnostics'
+    """
+    bn = (bill_no or "").upper()
+    if bn.startswith("OPR"):
+        return "op_radiology"
+    if bn.startswith("IPD"):
+        return "ip_diagnostics"
+    has_diag = (lab > 0) or (radiology > 0) or (proc > 0)
+    if appointment_id is None and consult_charge == 0 and has_diag:
+        return "direct"
+    return "op"
+
+
+# ---------------------------------------------------------------------------
+# COLLECTION SUMMARY
+# ---------------------------------------------------------------------------
 @dashboard_bp.route("/collection-summary", methods=["GET"])
 @jwt_required()
 def collection_summary():
     start_date = request.args.get("start_date") or date.today().isoformat()
     end_date = request.args.get("end_date") or date.today().isoformat()
-    # "clinic" accepted for forward compatibility; no multi-clinic data model yet, so unused
     request.args.get("clinic", "All")
 
+    # All buckets
     op_billing = _empty_bucket()
     op_diagnostics = _empty_bucket()
     op_radiology = _empty_bucket()
     direct_patients = _empty_bucket()
     direct_diagnostics = _empty_bucket()
     direct_radiology = _empty_bucket()
+    ip_income = _empty_bucket()
+    ip_diagnostics = _empty_bucket()
+    ip_radiology = _empty_bucket()
 
     op_due_direct = 0.0
     op_due_lab_radiology = 0.0
+    ip_due_bill = 0.0
+    ip_due_lab_radiology = 0.0
 
+    # ----- OP bills --------------------------------------------------------
     op_bills = query("""
-        SELECT * FROM op_bills
-        WHERE DATE(created_at) BETWEEN %s AND %s AND status != 'Cancelled'
+        SELECT id, bill_no, patient_id, appointment_id,
+               consultation_charge, lab_charge, procedure_charge,
+               service_charge, pharmacy_charge, radiology_charge,
+               paid_amount, due_amount, payment_mode, payment_split,
+               status, remarks
+        FROM op_bills
+        WHERE DATE(created_at) BETWEEN %s AND %s
+          AND status <> 'Cancelled'
     """, (start_date, end_date), many=True)
+
+    # IPD* bills found in op_bills are deferred so we can route them into
+    # the IP buckets (which are logically the correct home for them).
+    deferred_ip_diag = []
 
     for b in op_bills:
         paid = float(b["paid_amount"] or 0)
         due = float(b["due_amount"] or 0)
-        is_direct = b["appointment_id"] is None
-        mode = b["payment_mode"]
+        mode = b.get("payment_mode")
+        split = b.get("payment_split")
 
-        consult = float(b["consultation_charge"] or 0)
+        consult_charge = float(b["consultation_charge"] or 0)
         lab = float(b["lab_charge"] or 0)
-        proc = float(b["procedure_charge"] or 0)  # treated as radiology proxy
+        radiology = float(b.get("radiology_charge") or 0)
+        proc = float(b["procedure_charge"] or 0)
+        if radiology == 0 and proc > 0:
+            radiology = proc
         other = float(b["service_charge"] or 0) + float(b["pharmacy_charge"] or 0)
 
-        parts = {"consult": consult + other, "lab": lab, "proc": proc}
-        total_parts = sum(parts.values()) or 1
+        appointment_id = b.get("appointment_id")
+        kind = _classify_op_bill(
+            b.get("bill_no"), appointment_id,
+            consult_charge, lab, radiology, proc,
+        )
 
-        for key, amt in parts.items():
-            frac = amt / total_parts
-            share_paid = paid * frac
-            share_due = due * frac
+        if kind == "ip_diagnostics":
+            deferred_ip_diag.append(b)
+            continue
 
-            if key == "consult":
-                _add(direct_patients if is_direct else op_billing, mode, share_paid)
-                op_due_direct += share_due
-            elif key == "lab":
-                _add(direct_diagnostics if is_direct else op_diagnostics, mode, share_paid)
-                op_due_lab_radiology += share_due
-            elif key == "proc":
-                _add(direct_radiology if is_direct else op_radiology, mode, share_paid)
-                op_due_lab_radiology += share_due
+        if kind == "op_radiology":
+            parts = {"radiology": radiology or paid}
+            bucket_map = {"radiology": op_radiology}
+        elif kind == "direct":
+            parts = {
+                "consult": consult_charge + other,
+                "lab": lab,
+                "radiology": radiology,
+            }
+            bucket_map = {
+                "consult": direct_patients,
+                "lab": direct_diagnostics,
+                "radiology": direct_radiology,
+            }
+        else:  # 'op'
+            parts = {
+                "consult": consult_charge + other,
+                "lab": lab,
+                "radiology": radiology,
+            }
+            bucket_map = {
+                "consult": op_billing,
+                "lab": op_diagnostics,
+                "radiology": op_radiology,
+            }
 
-    ip_income = _empty_bucket()
-    ip_diagnostics = _empty_bucket()
-    ip_radiology = _empty_bucket()
-    ip_due_bill = 0.0
-    ip_due_lab_radiology = 0.0
+        _distribute(paid, mode, split, parts, bucket_map)
 
-    ip_bills = query("""
-        SELECT * FROM ip_bills
-        WHERE DATE(created_at) BETWEEN %s AND %s AND status != 'Cancelled'
+        total_parts = sum(parts.values()) or 0
+        if due and total_parts > 0:
+            if kind == "op_radiology":
+                op_due_lab_radiology += due
+            else:
+                op_due_direct += due * ((parts.get("consult", 0)) / total_parts)
+                op_due_lab_radiology += due * (
+                    (parts.get("lab", 0) + parts.get("radiology", 0)) / total_parts
+                )
+
+    # ----- IP bills --------------------------------------------------------
+    ip_cols = {c["Field"] for c in query("SHOW COLUMNS FROM ip_bills", many=True)}
+    has_ip_mode = "payment_mode" in ip_cols
+    has_ip_split = "payment_split" in ip_cols
+
+    mode_select = "payment_mode" if has_ip_mode else "'Cash' AS payment_mode"
+    split_select = "payment_split" if has_ip_split else "NULL AS payment_split"
+
+    ip_bills = query(f"""
+        SELECT id, admission_id, ip_registration_id, admission_charge, room_charge,
+               doctor_visit_charge, lab_charge, radiology_charge, ot_charge,
+               procedure_charge, medicine_charge, nursing_charge, service_charge,
+               food_charge, misc_charge, paid_amount, due_amount,
+               {mode_select}, {split_select}
+        FROM ip_bills
+        WHERE DATE(created_at) BETWEEN %s AND %s
+          AND status <> 'Cancelled'
     """, (start_date, end_date), many=True)
 
     for b in ip_bills:
         paid = float(b["paid_amount"] or 0)
         due = float(b["due_amount"] or 0)
+        mode = b.get("payment_mode") or "Cash"
+        split = b.get("payment_split")
+
         lab = float(b["lab_charge"] or 0)
         radiology = float(b["radiology_charge"] or 0)
         other = (
-            float(b["admission_charge"] or 0) + float(b["room_charge"] or 0) +
-            float(b["doctor_visit_charge"] or 0) + float(b["ot_charge"] or 0) +
-            float(b["procedure_charge"] or 0) + float(b["medicine_charge"] or 0) +
-            float(b["nursing_charge"] or 0) + float(b["service_charge"] or 0) +
-            float(b["food_charge"] or 0) + float(b["misc_charge"] or 0)
+            float(b["admission_charge"] or 0)
+            + float(b["room_charge"] or 0)
+            + float(b["doctor_visit_charge"] or 0)
+            + float(b["ot_charge"] or 0)
+            + float(b["procedure_charge"] or 0)
+            + float(b["medicine_charge"] or 0)
+            + float(b["nursing_charge"] or 0)
+            + float(b["service_charge"] or 0)
+            + float(b["food_charge"] or 0)
+            + float(b["misc_charge"] or 0)
         )
-        # ip_bills has no payment_mode column in the current schema — bucketed as Cash
-        # until that column is added.
-        mode = "Cash"
 
         parts = {"other": other, "lab": lab, "radiology": radiology}
+        bucket_map = {
+            "other": ip_income,
+            "lab": ip_diagnostics,
+            "radiology": ip_radiology,
+        }
+        _distribute(paid, mode, split, parts, bucket_map)
+
         total_parts = sum(parts.values()) or 1
+        if due:
+            ip_due_bill += due * (other / total_parts)
+            ip_due_lab_radiology += due * ((lab + radiology) / total_parts)
 
-        for key, amt in parts.items():
-            frac = amt / total_parts
-            share_paid = paid * frac
-            share_due = due * frac
-            if key == "other":
-                _add(ip_income, mode, share_paid)
-                ip_due_bill += share_due
-            elif key == "lab":
-                _add(ip_diagnostics, mode, share_paid)
-                ip_due_lab_radiology += share_due
-            elif key == "radiology":
-                _add(ip_radiology, mode, share_paid)
-                ip_due_lab_radiology += share_due
+    # ----- Deferred IPD* bills found in op_bills ---------------------------
+    for b in deferred_ip_diag:
+        paid = float(b["paid_amount"] or 0)
+        due = float(b["due_amount"] or 0)
+        mode = b.get("payment_mode")
+        split = b.get("payment_split")
+        lab = float(b["lab_charge"] or 0)
+        radiology = float(b.get("radiology_charge") or 0)
 
+        parts = {"lab": lab or paid, "radiology": radiology}
+        bucket_map = {"lab": ip_diagnostics, "radiology": ip_radiology}
+        _distribute(paid, mode, split, parts, bucket_map)
+
+        if due:
+            ip_due_lab_radiology += due
+
+    # ----- Refunds ---------------------------------------------------------
     refunds = query("""
-        SELECT bill_type, IFNULL(SUM(amount),0) s FROM billing_actions
-        WHERE action_type='Advance_Refund' AND DATE(created_at) BETWEEN %s AND %s
+        SELECT bill_type, IFNULL(SUM(amount),0) s
+        FROM billing_actions
+        WHERE action_type='Advance_Refund'
+          AND DATE(created_at) BETWEEN %s AND %s
         GROUP BY bill_type
     """, (start_date, end_date), many=True)
     refund_map = {r["bill_type"]: float(r["s"]) for r in refunds}
 
+    # ----- Totals ----------------------------------------------------------
     total_income = (
-        op_billing["total"] + op_diagnostics["total"] + op_radiology["total"] +
-        direct_patients["total"] + direct_diagnostics["total"] + direct_radiology["total"] +
-        ip_income["total"] + ip_diagnostics["total"] + ip_radiology["total"]
+        op_billing["total"] + op_diagnostics["total"] + op_radiology["total"]
+        + direct_patients["total"] + direct_diagnostics["total"] + direct_radiology["total"]
+        + ip_income["total"] + ip_diagnostics["total"] + ip_radiology["total"]
     )
-    expenses = 0.0  # no expense-tracking table exists yet
+    expenses = 0.0
     grand_total = total_income - expenses
 
     users_count = query("SELECT COUNT(*) c FROM users WHERE is_active=1")["c"]
@@ -225,7 +427,7 @@ def collection_summary():
             "users": users_count,
             "doctors": doctors_count,
             "last_updated": datetime.now().isoformat(),
-            "sms_remaining": None,  # no SMS provider integrated
+            "sms_remaining": None,
         },
         "op_billing": op_billing,
         "op_diagnostics": op_diagnostics,
@@ -246,6 +448,9 @@ def collection_summary():
             "op_lab_radiology_due": op_due_lab_radiology,
             "ip_bill_due": ip_due_bill,
             "ip_lab_radiology_due": ip_due_lab_radiology,
-            "total_due": op_due_direct + op_due_lab_radiology + ip_due_bill + ip_due_lab_radiology,
+            "total_due": (
+                op_due_direct + op_due_lab_radiology
+                + ip_due_bill + ip_due_lab_radiology
+            ),
         },
     })

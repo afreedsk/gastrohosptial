@@ -48,7 +48,14 @@ def upsert_op_bill(cur, bill_no, patient_id, cash, card, upi, bank, total,
 
 def process_batch(batch_id, filepath):
     conn = get_db()
-    cur = conn.cursor(dictionary=True)
+    # IMPORTANT: buffered=True. Without it, mysql-connector-python's C extension
+    # cursor can leave a SELECT's result set only partially "acknowledged" as
+    # drained even after fetchone() returns the row you wanted. The next
+    # cur.execute() call then raises:
+    #   mysql.connector.errors.InternalError: Unread result found
+    # Buffered cursors read the entire result set into memory immediately on
+    # execute(), so there is never anything left "unread" between queries.
+    cur = conn.cursor(dictionary=True, buffered=True)
 
     try:
         cur.execute("UPDATE import_batches SET status='Processing' WHERE id=%s", (batch_id,))
@@ -110,11 +117,17 @@ def process_batch(batch_id, filepath):
             except Exception as e:
                 conn.rollback()
                 failed += 1
-                cur.execute("""
-                    INSERT INTO import_errors (batch_id, row_no, error_message, raw_data)
-                    VALUES (%s, %s, %s, %s)
-                """, (batch_id, row_num, str(e), safe_json_dump(row.to_dict())))
-                conn.commit()
+                # Guard the error-logging insert itself: if THIS insert fails
+                # (e.g. bad JSON, unexpected connector state), it must never
+                # be allowed to kill the whole batch thread.
+                try:
+                    cur.execute("""
+                        INSERT INTO import_errors (batch_id, row_no, error_message, raw_data)
+                        VALUES (%s, %s, %s, %s)
+                    """, (batch_id, row_num, str(e), safe_json_dump(row.to_dict())))
+                    conn.commit()
+                except Exception:
+                    conn.rollback()
 
             processed += 1
             if processed % 100 == 0 or processed == total_rows:

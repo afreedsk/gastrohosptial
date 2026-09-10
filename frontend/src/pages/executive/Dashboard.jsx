@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
 import {
   UserPlus, CalendarClock, Stethoscope, BedDouble,
-  Receipt, IndianRupee, XCircle, FlaskConical, CalendarCheck, FileText, ShieldAlert
+  Receipt, IndianRupee, XCircle, FlaskConical, CalendarCheck, FileText, ShieldAlert,
 } from 'lucide-react'
 import api from '../../api/axios'
 import StatCard from '../../components/StatCard'
@@ -24,6 +24,11 @@ const QUICK_LINKS = [
   { to: '/executive/billing-modifications', label: 'Billing Management', icon: ShieldAlert },
 ]
 
+const safeFetch = (url, setter) =>
+  api.get(url)
+    .then((r) => setter(r.data))
+    .catch((e) => console.error(`[dashboard] ${url}`, e))
+
 export default function ExecutiveDashboard() {
   const [summary, setSummary] = useState(null)
   const [patientsPerDay, setPatientsPerDay] = useState([])
@@ -32,11 +37,11 @@ export default function ExecutiveDashboard() {
   const [deptCollection, setDeptCollection] = useState([])
 
   useEffect(() => {
-    api.get('/dashboard/summary').then((r) => setSummary(r.data)).catch(() => {})
-    api.get('/dashboard/charts/patients-per-day').then((r) => setPatientsPerDay(r.data)).catch(() => {})
-    api.get('/dashboard/charts/revenue').then((r) => setRevenue(r.data)).catch(() => {})
-    api.get('/dashboard/charts/op-vs-ip').then((r) => setOpVsIp(r.data)).catch(() => {})
-    api.get('/dashboard/charts/department-collection').then((r) => setDeptCollection(r.data)).catch(() => {})
+    safeFetch('/dashboard/summary', setSummary)
+    safeFetch('/dashboard/charts/patients-per-day', setPatientsPerDay)
+    safeFetch('/dashboard/charts/revenue', setRevenue)
+    safeFetch('/dashboard/charts/op-vs-ip', setOpVsIp)
+    safeFetch('/dashboard/charts/department-collection', setDeptCollection)
   }, [])
 
   const cards = summary
@@ -46,7 +51,7 @@ export default function ExecutiveDashboard() {
         { label: "Today's OP Patients", value: summary.todays_op_patients, icon: Stethoscope },
         { label: "Today's IP Admissions", value: summary.todays_ip_admissions, icon: BedDouble },
         { label: 'Pending Bills', value: summary.pending_bills, icon: Receipt, tone: 'amber' },
-        { label: "Today's Revenue", value: `₹${summary.todays_revenue.toLocaleString()}`, icon: IndianRupee },
+        { label: "Today's Revenue", value: `₹${Number(summary.todays_revenue || 0).toLocaleString()}`, icon: IndianRupee },
         { label: 'Cancelled Bills', value: summary.cancelled_bills, icon: XCircle, tone: 'red' },
         { label: 'Pending Lab Reports', value: summary.pending_lab_reports, icon: FlaskConical, tone: 'amber' },
       ]
@@ -125,7 +130,11 @@ export default function ExecutiveDashboard() {
       <Section title="Quick Access">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {QUICK_LINKS.map(({ to, label, icon: Icon }) => (
-            <Link key={to} to={to} className="flex items-center gap-3 p-3 rounded-sm border border-border hover:border-teal-600 hover:bg-teal-50/50 text-sm text-ink/70">
+            <Link
+              key={to}
+              to={to}
+              className="flex items-center gap-3 p-3 rounded-sm border border-border hover:border-teal-600 hover:bg-teal-50/50 text-sm text-ink/70"
+            >
               <Icon size={16} className="text-teal-600" />
               {label}
             </Link>

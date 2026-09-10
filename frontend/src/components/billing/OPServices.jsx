@@ -1,19 +1,26 @@
-    import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Search, Plus } from 'lucide-react'
 import api from '../../api/axios'
 import CatalogPickerModal from '../registration/CatalogPickerModal'
+import Pagination from '../common/Pagination'
+
+const PER_PAGE = 25
 
 export default function OPServices() {
   const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [globalSearch, setGlobalSearch] = useState('')
   const [data, setData] = useState([])
   const [patients, setPatients] = useState([])
   const [selectedPatient, setSelectedPatient] = useState(null)
   const [showPicker, setShowPicker] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [total, setTotal] = useState(0)
 
   const searchPatients = async (q) => {
     if (!q.trim()) {
@@ -28,16 +35,21 @@ export default function OPServices() {
     }
   }
 
-  const fetchServiceRecords = async (patientId) => {
-    if (!patientId) return
+  const fetchServiceRecords = async (opts = {}) => {
+    const p = opts.page ?? page
     setLoading(true)
     try {
-      const params = new URLSearchParams()
-      params.append('patient_id', patientId)
-      if (startDate) params.append('start_date', startDate)
-      if (endDate) params.append('end_date', endDate)
-      const { data } = await api.get(`/op-services?${params.toString()}`)
-      setData(data)
+      const params = { page: p, per_page: PER_PAGE }
+      if (selectedPatient) params.patient_id = selectedPatient.id
+      if (globalSearch) params.search = globalSearch
+      if (startDate) params.start_date = startDate
+      if (endDate) params.end_date = endDate
+
+      const { data: res } = await api.get('/op-services', { params })
+      setData(res.data || [])
+      setTotal(res.total || 0)
+      setTotalPages(res.total_pages || 1)
+      setPage(res.page || p)
     } catch (err) {
       console.error(err)
       setError('Failed to load service records')
@@ -50,17 +62,17 @@ export default function OPServices() {
     setSelectedPatient(patient)
     setSearchQuery(`${patient.name} — ${patient.phone}`)
     setPatients([])
-    fetchServiceRecords(patient.id)
   }
 
-  const applyFilters = () => {
-    if (selectedPatient) fetchServiceRecords(selectedPatient.id)
-  }
+  const applyFilters = () => fetchServiceRecords({ page: 1 })
 
   const resetFilters = () => {
     setStartDate('')
     setEndDate('')
-    if (selectedPatient) fetchServiceRecords(selectedPatient.id)
+    setGlobalSearch('')
+    setSelectedPatient(null)
+    setSearchQuery('')
+    setTimeout(() => fetchServiceRecords({ page: 1 }), 0)
   }
 
   const handleAddServices = async (selectedList, total) => {
@@ -92,25 +104,26 @@ export default function OPServices() {
 
       setSuccess(`${selectedList.length} service(s) added successfully`)
       setShowPicker(false)
-      fetchServiceRecords(selectedPatient.id)
+      fetchServiceRecords({ page: 1 })
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to add services')
     }
   }
 
   useEffect(() => {
-    if (selectedPatient) fetchServiceRecords(selectedPatient.id)
+    fetchServiceRecords({ page: 1 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPatient])
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap gap-4 items-end">
         <div className="flex-1 min-w-[250px] relative">
-          <label className="label">Search Patient</label>
+          <label className="label">Search Patient (Reg No / Name / Phone)</label>
           <div className="relative">
             <input
               className="input w-full"
-              placeholder="Search by name, MR, phone, or email..."
+              placeholder="Search by name, MR, reg no, or phone..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value)
@@ -136,6 +149,16 @@ export default function OPServices() {
               </div>
             )}
           </div>
+        </div>
+
+        <div className="flex-1 min-w-[200px]">
+          <label className="label">Or search service / any field</label>
+          <input
+            className="input w-full"
+            placeholder="Search service, bill no, phone…"
+            value={globalSearch}
+            onChange={(e) => setGlobalSearch(e.target.value)}
+          />
         </div>
 
         <div>
@@ -170,8 +193,8 @@ export default function OPServices() {
 
       {loading && <div className="text-center py-4">Loading...</div>}
 
-      {!loading && selectedPatient && data.length === 0 && (
-        <div className="text-center py-8 text-ink/50">No service records found for this patient.</div>
+      {!loading && data.length === 0 && (
+        <div className="text-center py-8 text-ink/50">No service records found.</div>
       )}
 
       {!loading && data.length > 0 && (
@@ -179,7 +202,9 @@ export default function OPServices() {
           <table className="w-full text-sm">
             <thead className="bg-ink/5 border-b border-border">
               <tr>
-                <th className="px-3 py-2 text-left">OPD Reg No</th>
+                <th className="px-3 py-2 text-left">Reg No</th>
+                <th className="px-3 py-2 text-left">Patient</th>
+                <th className="px-3 py-2 text-left">Phone</th>
                 <th className="px-3 py-2 text-left">Service</th>
                 <th className="px-3 py-2 text-right">Qty</th>
                 <th className="px-3 py-2 text-right">Rate</th>
@@ -191,6 +216,8 @@ export default function OPServices() {
               {data.map((row) => (
                 <tr key={row.id} className="border-b border-border hover:bg-ink/5">
                   <td className="px-3 py-2">{row.opd_reg_no}</td>
+                  <td className="px-3 py-2">{row.patient_name}</td>
+                  <td className="px-3 py-2">{row.patient_phone}</td>
                   <td className="px-3 py-2">{row.service_name}</td>
                   <td className="px-3 py-2 text-right">{row.quantity}</td>
                   <td className="px-3 py-2 text-right">{row.rate}</td>
@@ -200,11 +227,14 @@ export default function OPServices() {
               ))}
             </tbody>
           </table>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            perPage={PER_PAGE}
+            onPageChange={(p) => fetchServiceRecords({ page: p })}
+          />
         </div>
-      )}
-
-      {!selectedPatient && (
-        <div className="text-center py-8 text-ink/50">Search for a patient to view their service records.</div>
       )}
 
       {showPicker && (

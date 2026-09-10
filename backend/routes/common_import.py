@@ -166,7 +166,27 @@ def get_user_id_by_name(cur, name):
 
 
 def safe_json_dump(row_dict):
+    """Serialize a row to JSON safely for storage in a MySQL JSON column.
+
+    pandas represents blank/missing CSV cells as float('nan'). Python's
+    json.dumps() allows NaN/Infinity by default and writes them as bare
+    tokens (NaN, Infinity, -Infinity) — which is NOT valid JSON per spec,
+    and MySQL's native JSON column type rejects it with:
+        Invalid JSON text: "Invalid value."
+    That failure used to happen *inside* the except block that logs
+    import errors, with nothing catching it — killing the whole import
+    thread. This version converts NaN/inf floats to None (-> JSON null)
+    before dumping, and sets allow_nan=False as a belt-and-braces check
+    so any leftover non-finite float raises immediately and falls into
+    the fallback branch instead of producing invalid JSON.
+    """
+    def _clean(v):
+        if isinstance(v, float) and (v != v or v in (float("inf"), float("-inf"))):
+            return None  # NaN / inf / -inf -> null, which is valid JSON
+        return v
+
     try:
-        return json.dumps(row_dict, default=str)
+        cleaned = {k: _clean(v) for k, v in row_dict.items()}
+        return json.dumps(cleaned, default=str, allow_nan=False)
     except Exception:
         return json.dumps({"error": "could not serialize row"})

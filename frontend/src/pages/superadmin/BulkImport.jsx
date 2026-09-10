@@ -3,10 +3,10 @@ import ImportBills from "./ImportOPDBills";
 import ExportOPDBills from "./ExportOPDBills";
 
 const TABS = [
-  { key: "opd", label: "Import OPD Bills" },
-  { key: "lab", label: "Import Lab Bills" },
+  { key: "opd",       label: "Import OPD Bills" },
+  { key: "lab",       label: "Import Lab Bills" },
   { key: "radiology", label: "Import Radiology Bills" },
-  { key: "export", label: "Export OPD Bills" },
+  { key: "export",    label: "Export Bills" },
 ];
 
 export default function BulkImport() {

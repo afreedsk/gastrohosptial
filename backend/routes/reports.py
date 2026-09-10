@@ -70,16 +70,22 @@ def ip_radiology_report():
     if not start or not end:
         return jsonify({"error": "start_date and end_date are required"}), 400
 
+    # NOTE: there is no `ip_radiology` items table in your schema (unlike
+    # op_radiology). This still checks `radiology_orders`, which your app
+    # doesn't appear to write to for IP visits — so this report will likely
+    # stay empty until either (a) IP radiology starts writing to
+    # radiology_orders, or (b) you add an `ip_radiology` table mirroring
+    # `op_radiology` and we point this at it instead.
     sql = """
-        SELECT DISTINCT r.id, p.patient_uid AS mr_number, r.ip_reg_no AS patient_reg_no, r.patient_id,
+        SELECT r.id, p.patient_uid AS mr_number, r.ip_reg_no AS patient_reg_no, r.patient_id,
                CONCAT(r.first_name, ' ', IFNULL(r.last_name, '')) AS name,
                r.mobile AS contact, r.gender, r.age, doc.name AS doctor_name,
                r.room_type, r.room_no, r.bed_no
         FROM ip_registrations r
         JOIN patients p ON p.id = r.patient_id
         LEFT JOIN doctors doc ON doc.id = r.doctor_id
-        JOIN radiology_orders ro ON ro.ip_registration_id = r.id
         WHERE r.admitted_date BETWEEN %s AND %s
+          AND EXISTS (SELECT 1 FROM radiology_orders ro WHERE ro.ip_registration_id = r.id)
     """
     params = [start, end]
     if not show_discharged:
@@ -98,7 +104,7 @@ def op_radiology_report():
         return jsonify({"error": "start_date and end_date are required"}), 400
 
     sql = """
-        SELECT DISTINCT r.id, p.patient_uid AS mr_number, r.opd_reg_no AS patient_reg_no, r.patient_id,
+        SELECT r.id, p.patient_uid AS mr_number, r.opd_reg_no AS patient_reg_no, r.patient_id,
                CONCAT(r.first_name, ' ', IFNULL(r.last_name, '')) AS name,
                r.mobile AS contact, r.gender, TIMESTAMPDIFF(YEAR, r.dob, CURDATE()) AS age,
                doc.name AS doctor_name,
@@ -106,19 +112,18 @@ def op_radiology_report():
         FROM op_registrations r
         JOIN patients p ON p.id = r.patient_id
         LEFT JOIN doctors doc ON doc.id = r.doctor_id
-        JOIN radiology_orders ro ON ro.op_registration_id = r.id
         WHERE r.appointment_date BETWEEN %s AND %s
+          AND EXISTS (SELECT 1 FROM op_radiology rad WHERE rad.op_registration_id = r.id)
         ORDER BY r.appointment_date DESC, r.id DESC
     """
     rows = query(sql, (start, end), many=True)
+    _attach_radiology_items(rows, "op_registration_id", "op_radiology")
     return jsonify(rows)
 
 
 def _attach_lab_orders(rows, registration_fk):
     """Mutates `rows` in place, adding a `lab_orders: [{order_no}, ...]` list
-    to each row — one entry per test in lab_orders for that registration,
-    matching the frontend's expected shape (order numbers repeat per test,
-    same as the legacy report)."""
+    to each row — one entry per test in lab_orders for that registration."""
     for row in rows:
         orders = query(
             f"""
@@ -130,3 +135,21 @@ def _attach_lab_orders(rows, registration_fk):
             many=True,
         )
         row["lab_orders"] = orders
+
+
+def _attach_radiology_items(rows, registration_fk, table):
+    """Mutates `rows` in place, adding `items: [{item_name, quantity, rate,
+    amount}, ...]` and a summed `item_total` for that registration."""
+    for row in rows:
+        items = query(
+            f"""
+                SELECT item_name, quantity, rate, amount
+                FROM {table}
+                WHERE {registration_fk} = %s
+                ORDER BY id
+            """,
+            (row["id"],),
+            many=True,
+        )
+        row["items"] = items
+        row["item_total"] = sum(float(i["amount"] or 0) for i in items)

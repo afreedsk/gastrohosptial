@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Receipt, FlaskConical, Stethoscope, Scissors } from 'lucide-react'
+import { Receipt, FlaskConical, Stethoscope, Scissors, Search } from 'lucide-react'
 import api from '../../api/axios'
 import { PageHeader, Section, StatusBadge } from '../../components/PageHeader'
 import OPLab from '../../components/billing/OPLab'
 import OPServices from '../../components/billing/OPServices'
 import OPProcedures from '../../components/billing/OPProcedures'
+import Pagination from '../../components/common/Pagination'
 
 const CHARGE_ROWS = [
   { key: 'consultation_charge', label: 'Consultation' },
@@ -22,6 +23,8 @@ const initCharges = {
   pharmacy_charge: 0,
 }
 
+const PER_PAGE = 25
+
 export default function OPBilling() {
   const [patientSearch, setPatientSearch] = useState('')
   const [patients, setPatients] = useState([])
@@ -30,20 +33,56 @@ export default function OPBilling() {
   const [discount, setDiscount] = useState(0)
   const [paid, setPaid] = useState(0)
   const [paymentMode, setPaymentMode] = useState('Cash')
-  const [bills, setBills] = useState([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [activeTab, setActiveTab] = useState('bills') // 'bills', 'lab', 'services', 'procedures'
+  const [activeTab, setActiveTab] = useState('bills')
 
-  const loadBills = () => {
-    api.get('/op-billing')
-      .then((r) => setBills(r.data))
+  // Bills list + filters + pagination
+  const [bills, setBills] = useState([])
+  const [billsLoading, setBillsLoading] = useState(false)
+  const [billSearch, setBillSearch] = useState('')
+  const [billStartDate, setBillStartDate] = useState('')
+  const [billEndDate, setBillEndDate] = useState('')
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [total, setTotal] = useState(0)
+
+  const loadBills = (opts = {}) => {
+    const p = opts.page ?? page
+    setBillsLoading(true)
+    api.get('/op-billing', {
+      params: {
+        search: billSearch || undefined,
+        start_date: billStartDate || undefined,
+        end_date: billEndDate || undefined,
+        page: p,
+        per_page: PER_PAGE,
+      },
+    })
+      .then((r) => {
+        setBills(r.data.data || [])
+        setTotal(r.data.total || 0)
+        setTotalPages(r.data.total_pages || 1)
+        setPage(r.data.page || p)
+      })
       .catch((err) => console.error('Failed to load OP bills:', err))
+      .finally(() => setBillsLoading(false))
   }
 
   useEffect(() => {
-    loadBills()
+    loadBills({ page: 1 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const applyBillFilters = () => loadBills({ page: 1 })
+
+  const resetBillFilters = () => {
+    setBillSearch('')
+    setBillStartDate('')
+    setBillEndDate('')
+    setPage(1)
+    setTimeout(() => loadBills({ page: 1 }), 0)
+  }
 
   useEffect(() => {
     if (patientSearch.length > 1) {
@@ -82,7 +121,7 @@ export default function OPBilling() {
       setDiscount(0)
       setPaid(0)
       setPaymentMode('Cash')
-      loadBills()
+      loadBills({ page: 1 })
     } catch (err) {
       setError(err.response?.data?.error || 'Could not create bill')
     } finally {
@@ -216,28 +255,68 @@ export default function OPBilling() {
 
             <div>
               {activeTab === 'bills' && (
-                <div className="overflow-x-auto">
-                  <table className="table-base">
-                    <thead>
-                      <tr>
-                        <th>Bill No</th><th>Patient</th><th>Net Total</th><th>Paid</th><th>Due</th><th>Mode</th><th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {bills.map((b) => (
-                        <tr key={b.id}>
-                          <td>{b.bill_no}</td>
-                          <td>{b.patient_name}</td>
-                          <td>₹{Number(b.net_total || 0).toFixed(2)}</td>
-                          <td>₹{Number(b.paid_amount || 0).toFixed(2)}</td>
-                          <td>₹{Number(b.due_amount || 0).toFixed(2)}</td>
-                          <td>{b.payment_mode}</td>
-                          <td><StatusBadge status={b.status} /></td>
-                        </tr>
-                      ))}
-                      {!bills.length && <tr><td colSpan={7} className="text-center text-ink/40 py-8">No OP bills yet</td></tr>}
-                    </tbody>
-                  </table>
+                <div>
+                  <div className="flex flex-wrap gap-3 items-end mb-4">
+                    <div className="flex-1 min-w-[220px]">
+                      <label className="label">Search (Reg No / Name / Phone / Bill No)</label>
+                      <input
+                        className="input w-full"
+                        placeholder="Search…"
+                        value={billSearch}
+                        onChange={(e) => setBillSearch(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="label">From</label>
+                      <input type="date" className="input" value={billStartDate} onChange={(e) => setBillStartDate(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="label">To</label>
+                      <input type="date" className="input" value={billEndDate} onChange={(e) => setBillEndDate(e.target.value)} />
+                    </div>
+                    <button onClick={applyBillFilters} className="btn-primary flex items-center gap-2">
+                      <Search size={16} /> Apply
+                    </button>
+                    <button onClick={resetBillFilters} className="btn-secondary">Reset</button>
+                  </div>
+
+                  {billsLoading && <div className="text-center py-4">Loading...</div>}
+
+                  {!billsLoading && (
+                    <div className="overflow-x-auto">
+                      <table className="table-base">
+                        <thead>
+                          <tr>
+                            <th>Bill No</th><th>Reg No</th><th>Patient</th><th>Phone</th>
+                            <th>Net Total</th><th>Paid</th><th>Due</th><th>Mode</th><th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {bills.map((b) => (
+                            <tr key={b.id}>
+                              <td>{b.bill_no}</td>
+                              <td>{b.opd_reg_no || '—'}</td>
+                              <td>{b.patient_name}</td>
+                              <td>{b.patient_phone}</td>
+                              <td>₹{Number(b.net_total || 0).toFixed(2)}</td>
+                              <td>₹{Number(b.paid_amount || 0).toFixed(2)}</td>
+                              <td>₹{Number(b.due_amount || 0).toFixed(2)}</td>
+                              <td>{b.payment_mode}</td>
+                              <td><StatusBadge status={b.status} /></td>
+                            </tr>
+                          ))}
+                          {!bills.length && <tr><td colSpan={9} className="text-center text-ink/40 py-8">No OP bills yet</td></tr>}
+                        </tbody>
+                      </table>
+                      <Pagination
+                        page={page}
+                        totalPages={totalPages}
+                        total={total}
+                        perPage={PER_PAGE}
+                        onPageChange={(p) => loadBills({ page: p })}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
               {activeTab === 'lab' && <OPLab />}
