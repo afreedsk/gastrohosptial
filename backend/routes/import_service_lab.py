@@ -1,3 +1,4 @@
+import re
 import threading
 import pandas as pd
 from db import get_db
@@ -19,6 +20,12 @@ COLUMN_MAP = {
 }
 
 OP_BILLS_PAYMENT_MODES = ["Cash", "Card", "UPI", "Insurance", "Credit", "Bank"]
+
+# A genuine data row's Date column always starts with a real calendar date
+# (dd/mm/yyyy, dd-mm-yyyy, or yyyy-mm-dd). This is intentionally checked on
+# the RAW "Date" column, before COLUMN_MAP renaming, so it still works even
+# if the caller passes an un-renamed dataframe.
+_DATE_LIKE_RE = re.compile(r"^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|^\d{4}-\d{2}-\d{2}")
 
 
 def load_lab_test_rates(cur):
@@ -87,6 +94,48 @@ def insert_lab_items(cur, op_registration_id, investigations_text, rate_map, bil
         """, (op_registration_id, name, rate, rate, bill_date))
 
 
+def _looks_like_date(val):
+    if val is None:
+        return False
+    return bool(_DATE_LIKE_RE.match(str(val).strip()))
+
+
+def _strip_junk_rows(raw_df, date_col="Date"):
+    """
+    Real hospital exports of this type can end with MUCH more than a
+    trailing blank line: after a 'Grand Total' row, some exports append an
+    entire SECOND table — a 'Cancel Data' / cancelled-bills report — with a
+    completely different column layout (Patient Reg.No, Patient Name,
+    Invoice No, Lab & Radiology, Created At, Created By, Cancelled At,
+    Cancelled User, Cancelled Amount, Reason). Because that table has its
+    own header row further down the file, pandas still parses those rows
+    using the FIRST table's headers, which silently shifts every field into
+    the wrong column: the investigation list ends up in "Doctor Name", a
+    timestamp ends up in "Invoice No", etc.
+
+    Checking that MR Number / Invoice No are merely non-blank does NOT catch
+    this — those columns are non-blank in the mismapped rows too, just wrong.
+    If left unfiltered, this would create a "doctor" record whose name is a
+    full investigation list, use the wrong invoice numbers, and attribute
+    bogus lab items to real patients.
+
+    The one column that is reliably safe to check is "Date": a genuine
+    billing row always has a real calendar date there. The 'Grand Total'
+    line, blank rows, repeated header rows, and every row from the mismapped
+    cancellation table all fail this check, because whatever value ended up
+    in the Date column (a MR number, a name, blank, etc.) is never a
+    real date. This is checked on the RAW, un-renamed "Date" column so it
+    runs before COLUMN_MAP renaming and doesn't depend on it.
+    """
+    if date_col not in raw_df.columns:
+        return raw_df, 0
+    before = len(raw_df)
+    mask = raw_df[date_col].apply(_looks_like_date)
+    cleaned = raw_df[mask]
+    skipped = before - len(cleaned)
+    return cleaned, skipped
+
+
 def process_lab_batch(batch_id, filepath):
     conn = get_db()
     # IMPORTANT: buffered=True. Without it, mysql-connector-python's C extension
@@ -104,6 +153,14 @@ def process_lab_batch(batch_id, filepath):
 
         df = pd.read_csv(filepath, dtype=str) if filepath.lower().endswith(".csv") \
             else pd.read_excel(filepath, dtype=str)
+
+        # Drop trailer/junk rows (Grand Total lines, blank rows, repeated
+        # header rows, and any mismapped "Cancel Data" trailer table) BEFORE
+        # renaming columns, using the raw "Date" column — a much stronger
+        # signal than checking MR Number / Invoice No are non-blank, which
+        # does not catch mismapped rows (see _strip_junk_rows docstring).
+        df, skipped_junk_rows = _strip_junk_rows(df, date_col="Date")
+
         df = df.rename(columns=COLUMN_MAP)
         df = df.where(pd.notnull(df), None)
 
@@ -115,7 +172,7 @@ def process_lab_batch(batch_id, filepath):
         inserted = updated = failed = processed = 0
 
         for idx, row in df.iterrows():
-            row_num = idx + 2
+            row_num = idx + 2  # +2: 1-indexed CSV rows, plus header row
             try:
                 bill_date = parse_date_flex(row.get("bill_date"))
                 age = parse_age(row.get("age"))

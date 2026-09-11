@@ -126,7 +126,7 @@ def department_collection():
 # HELPERS
 # ---------------------------------------------------------------------------
 def _empty_bucket():
-    return {"cash": 0.0, "card": 0.0, "upi": 0.0, "bank": 0.0, "total": 0.0}
+    return {"cash": 0.0, "card": 0.0, "upi": 0.0, "bank": 0.0, "total": 0.0, "count": 0}
 
 
 def _mode_key(mode):
@@ -184,6 +184,19 @@ def _iter_paid_splits(paid_amount, single_mode, split_json):
 
 
 def _distribute(paid_amount, single_mode, split_json, parts, bucket_map):
+    """
+    Splits paid_amount proportionally across parts (e.g. consult/lab/radiology)
+    and credits the matching payment-mode buckets. Also marks bucket['count']
+    += 1 for every category that had a non-zero part on this bill, so the UI
+    can show a record count per category (e.g. "OP Billing - 6344"),
+    independent of whether that part was actually paid yet.
+    """
+    for key, part_amt in parts.items():
+        if part_amt:
+            bucket = bucket_map.get(key)
+            if bucket is not None:
+                bucket["count"] += 1
+
     if paid_amount <= 0:
         return
     splits = list(_iter_paid_splits(paid_amount, single_mode, split_json))
@@ -211,15 +224,91 @@ def _distribute(paid_amount, single_mode, split_json, parts, bucket_map):
             _add(bucket, mode, amt * (float(part_amt) / total_parts))
 
 
-def _classify_op_bill(bill_no, appointment_id, consult_charge, lab, radiology, proc):
+def _is_consultation_bill(bill_no, consult_charge, remarks):
     """
-    Return one of: 'op', 'direct', 'op_radiology', 'ip_diagnostics'
+    True if this op_bills row represents a real doctor-consultation /
+    registration charge — i.e. genuine evidence the patient actually saw a
+    doctor that day, as opposed to a bulk-imported lab/radiology-only bill.
+
+    Two signals, because neither is reliable alone on this dataset:
+      1. consultation_charge > 0 — the "correct" signal, but many older
+         consultation bills were imported with this column left at 0 and
+         the amount recorded only in `remarks` (e.g. "Consultation Fee,
+         Registration Fee" with gross_total=500, consultation_charge=0).
+         A one-time backfill migration can set consultation_charge from
+         gross_total for these, but this function must work correctly
+         whether or not that migration has been run.
+      2. remarks mentioning "Consultation" or "Registration" — catches the
+         bills the backfill hasn't (yet) touched.
+
+    Bulk-imported Lab/Radiology/IP-diagnostics bills (bill_no prefixes
+    OPInv/OPRInv/IPDInv/IPRInv) are excluded up front: those bill numbers
+    are never real consultation bills, and without this exclusion a lab
+    bill whose Investigations text happened to contain the word
+    "registration" could falsely count as a consultation.
     """
     bn = (bill_no or "").upper()
-    if bn.startswith("OPR"):
-        return "op_radiology"
+    if bn.startswith("OPR") or bn.startswith("IPD") or bn.startswith("IPR") or bn.startswith("OPINV"):
+        return False
+    if consult_charge and float(consult_charge) > 0:
+        return True
+    r = (remarks or "").lower()
+    return "consultation" in r or "registration" in r
+
+
+def _classify_op_bill(bill_no, appointment_id, consult_charge, lab, radiology, proc,
+                       patient_id, bill_date, consult_days):
+    """
+    Return one of: 'op', 'direct', 'op_radiology', 'ip_diagnostics'
+
+    Bulk-import bill numbering convention:
+      - Radiology imports:  bill_no like 'OPRInv1021-...'
+      - Lab imports:        bill_no like 'OPInv1021-...'
+      - OPD consult imports: bill_no like 'INV3869'
+      - IPD diagnostics (legacy, stored in op_bills):  bill_no like 'IPDInv...'
+
+    IMPORTANT — why bill_no prefix ALONE cannot tell OP from Direct:
+    every bulk-imported Lab/Radiology bill carries an OP-prefixed patient
+    registration number (OP10210...), because the source hospital software
+    auto-issues that registration number for ANY billing transaction —
+    whether the patient saw a doctor first or walked straight up to the lab
+    counter. So "has an OP registration number" does NOT mean "saw a
+    doctor" in this data, and the bill_no prefix by itself cannot
+    distinguish a true OP visit from a Direct walk-in-for-a-test-only visit.
+
+    The signal that DOES distinguish them: whether that same patient also
+    has a genuine consultation/registration bill on the SAME calendar day
+    (see _is_consultation_bill and the `consult_days` set built once per
+    request in collection_summary). If yes, the lab/radiology charge on
+    that day belongs to a real OP visit. If no, it's Direct.
+
+    Known limitation: this is a same-day heuristic, not a true per-visit
+    join (op_bills has no direct link to a specific registration event), so
+    a lab test billed a few minutes past midnight relative to that day's
+    consultation bill could theoretically be missed. This is intentional
+    given what the data supports — see the conversation history for the
+    full column-by-column audit that ruled out other options.
+    """
+    bn = (bill_no or "").upper()
+
     if bn.startswith("IPD"):
         return "ip_diagnostics"
+
+    if bn.startswith("OPR"):
+        if (patient_id, bill_date) in consult_days:
+            return "op_radiology"
+        return "direct"
+
+    if bn.startswith("OPINV"):
+        if (patient_id, bill_date) in consult_days:
+            return "op"
+        return "direct"
+
+    if bn.startswith("INV"):
+        # OPD consultation bulk-import convention — always a real OP patient
+        # (this bill number IS the consultation/registration charge itself).
+        return "op"
+
     has_diag = (lab > 0) or (radiology > 0) or (proc > 0)
     if appointment_id is None and consult_charge == 0 and has_diag:
         return "direct"
@@ -258,11 +347,26 @@ def collection_summary():
                consultation_charge, lab_charge, procedure_charge,
                service_charge, pharmacy_charge, radiology_charge,
                paid_amount, due_amount, payment_mode, payment_split,
-               status, remarks
+               status, remarks, created_at
         FROM op_bills
         WHERE DATE(created_at) BETWEEN %s AND %s
           AND status <> 'Cancelled'
     """, (start_date, end_date), many=True)
+
+    # ----- Pass 1: which (patient, day) pairs have a real consultation? ----
+    # Built once, up front, so the classification pass below can do a same-
+    # day lookup instead of a per-bill query. See _is_consultation_bill /
+    # _classify_op_bill docstrings for why this is the signal that actually
+    # distinguishes a true OP visit from a Direct walk-in-for-a-test-only
+    # bill in this dataset.
+    consult_days = set()
+    for b in op_bills:
+        created = b.get("created_at")
+        if not created:
+            continue
+        day = created.date() if hasattr(created, "date") else created
+        if _is_consultation_bill(b.get("bill_no"), b.get("consultation_charge"), b.get("remarks")):
+            consult_days.add((b.get("patient_id"), day))
 
     # IPD* bills found in op_bills are deferred so we can route them into
     # the IP buckets (which are logically the correct home for them).
@@ -282,10 +386,32 @@ def collection_summary():
             radiology = proc
         other = float(b["service_charge"] or 0) + float(b["pharmacy_charge"] or 0)
 
+        # Bulk-imported bills carry the whole amount in gross/net/cash
+        # fields rather than the category-specific charge columns
+        # (consultation_charge/lab_charge/radiology_charge), because the
+        # importer only knows "this is a lab/radiology/OPD bill" from its
+        # bill_no prefix, not a per-line breakdown. So if none of the
+        # category columns are populated, fall back to the bill's paid+due
+        # total so the bill still contributes somewhere instead of vanishing
+        # from every bucket.
+        bn_upper = (b.get("bill_no") or "").upper()
+        if consult_charge == 0 and lab == 0 and radiology == 0 and proc == 0 and other == 0:
+            fallback_total = paid + due
+            if bn_upper.startswith("OPR"):
+                radiology = fallback_total
+            elif bn_upper.startswith("OPINV"):
+                lab = fallback_total
+            else:
+                consult_charge = fallback_total
+
         appointment_id = b.get("appointment_id")
+        created = b.get("created_at")
+        bill_day = (created.date() if hasattr(created, "date") else created) if created else None
+
         kind = _classify_op_bill(
             b.get("bill_no"), appointment_id,
             consult_charge, lab, radiology, proc,
+            b.get("patient_id"), bill_day, consult_days,
         )
 
         if kind == "ip_diagnostics":
@@ -293,7 +419,7 @@ def collection_summary():
             continue
 
         if kind == "op_radiology":
-            parts = {"radiology": radiology or paid}
+            parts = {"radiology": radiology or (paid + due)}
             bucket_map = {"radiology": op_radiology}
         elif kind == "direct":
             parts = {
@@ -392,7 +518,7 @@ def collection_summary():
         lab = float(b["lab_charge"] or 0)
         radiology = float(b.get("radiology_charge") or 0)
 
-        parts = {"lab": lab or paid, "radiology": radiology}
+        parts = {"lab": lab or (paid + due), "radiology": radiology}
         bucket_map = {"lab": ip_diagnostics, "radiology": ip_radiology}
         _distribute(paid, mode, split, parts, bucket_map)
 
